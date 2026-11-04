@@ -3291,7 +3291,7 @@
         // Add Maps.guru vector tile layer using MapLibre GL
         const mapsGuruApiKey = '{{ maps_guru_api_key }}';
 
-        if (typeof L.maplibreGL === 'function') {
+        if (mapsGuruApiKey && typeof L.maplibreGL === 'function') {
           const styleUrl = `https://maps.guru/api/v1/styles/standard/light/style.json?key=${mapsGuruApiKey}`;
 
           // Fetch and modify the style to fix font issues
@@ -3320,7 +3320,7 @@
               }).addTo(window.leafletMap);
             });
         } else {
-          console.error('L.maplibreGL not available, falling back to OSM tiles');
+          // Default: open OpenStreetMap tiles. Maps.guru is used only when a key is set.
           L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; OpenStreetMap contributors',
             maxZoom: 18

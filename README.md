@@ -53,7 +53,7 @@ This repository contains no respondent data, credentials or reference documents.
 |---|---|---|---|
 | Any OpenAI-compatible LLM endpoint (`OPENAI_API_BASE_URL`, `OPENAI_API_KEY`) | Survey translation | No | A self-hosted server such as Ollama or vLLM |
 | Anthropic API (`ANTHROPIC_API_KEY`) | Generated insights | No | None yet; the feature is unavailable without a key |
-| Maps.guru (`MAPS_GURU_API_KEY`) | Base map tiles in reports | No | None configured yet; the map renders on MapLibre GL |
+| Maps.guru (`MAPS_GURU_API_KEY`) | Base map tiles in reports | No, used only if a key is set | OpenStreetMap tiles are the default |
 | Sentry (`SENTRY_DSN`) | Error monitoring | No, off without a DSN | Self-hosted Sentry or GlitchTip |
 | Metabase | Analytics | No | It is open source; see `compose.yaml` |
 
@@ -71,7 +71,7 @@ Use Django's management commands through `uv run python manage.py`. For example,
 
 ## Community
 
-See the [privacy notice](PRIVACY.md), [CONTRIBUTING.md](CONTRIBUTING.md), [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md), [SECURITY.md](SECURITY.md) and the [content policy](docs/content-policy.md).
+See the [overview](docs/overview.md), [privacy notice](PRIVACY.md), [CONTRIBUTING.md](CONTRIBUTING.md), [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md), [SECURITY.md](SECURITY.md) and the [content policy](docs/content-policy.md).
 
 ## Copyright and licence
 
