@@ -1,3 +1,7 @@
+from django.contrib.auth import logout as session_logout
+from django.contrib.auth.models import AnonymousUser
+from graphql_jwt.settings import jwt_settings
+from auth_app.account_service import delete_account
 import graphene
 import graphql_jwt
 from graphene import relay
@@ -269,6 +273,31 @@ class ChangePassword(graphene.Mutation):
             )
 
 
+class DeleteAccount(graphene.Mutation):
+    class Arguments:
+        password = graphene.String(required=True)
+
+    success = graphene.Boolean(required=True)
+    message = graphene.String(required=True)
+
+    @login_required
+    def mutate(self, info, password):
+        if not delete_account(info.context.user, password):
+            return DeleteAccount(success=False, message="Current password is incorrect.")
+        if hasattr(info.context, "session"):
+            session_logout(info.context)
+        # JWT middleware also runs for the success/message child fields.
+        # Remove the now-invalid credentials so it can return the deletion
+        # receipt, and keep later mutations in this request unauthenticated.
+        info.context.user = AnonymousUser()
+        info.context.META.pop(jwt_settings.JWT_AUTH_HEADER_NAME, None)
+        info.context.COOKIES.pop(jwt_settings.JWT_COOKIE_NAME, None)
+        info.context.COOKIES.pop(jwt_settings.JWT_REFRESH_TOKEN_COOKIE_NAME, None)
+        info.context.delete_jwt_cookie = True
+        info.context.delete_refresh_token_cookie = True
+        return DeleteAccount(success=True, message="Your account has been permanently deleted.")
+
+
 class CustomObtainJSONWebToken(graphql_jwt.ObtainJSONWebToken):
     @classmethod
     def mutate(cls, root, info, **kwargs):
@@ -288,6 +317,7 @@ class Mutation(survey.schema.Mutation, graphene.ObjectType):
     forgot_password = ForgotPassword.Field()
     reset_password = ResetPassword.Field()
     change_password = ChangePassword.Field()
+    delete_account = DeleteAccount.Field()
 
 
 schema = graphene.Schema(query=Query, mutation=Mutation)

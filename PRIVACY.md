@@ -16,7 +16,7 @@ The operating organisation obtains consent before collecting personal data and r
 
 ## Your rights
 
-Under the DPDP Act you can ask the operating organisation to give you a summary of your data, correct or erase it, and name someone to act for you. You can also raise a grievance with it and, if it stays unresolved, with the Data Protection Board of India. Send requests to the organisation that collected your data. The software does not yet offer self-service deletion, so its administrators act on these requests.
+Under the DPDP Act you can ask the operating organisation to give you a summary of your data, correct or erase it, and name someone to act for you. You can also raise a grievance with it and, if it stays unresolved, with the Data Protection Board of India. Send requests to the organisation that collected your data. Account holders can delete their own account and the responses they submitted in the field app. For anything else, including a respondent's record, the organisation's administrators act on the request.
 
 ## Children
 
