@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/logo.png" alt="NAARI logo" width="160"></p>
+
 # NAARI
 
 NAARI (National Assessment of Agency, Resilience and Inclusion) is a survey platform for measuring women's empowerment, agency and resilience in agriculture. It supports the creation and management of surveys, collection of responses, and analysis of indicators related to women's empowerment in agriculture. This repository contains the Django administration and web application; the survey mobile app is a separate component.
