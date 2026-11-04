@@ -1,0 +1,75 @@
+{% extends "base_auth.html" %}
+{% load i18n %}
+{% block auth_title %}{% trans "Create account" %}{% endblock %}
+{% block auth_subtitle %}{% trans "Join our platform and start managing your business" %}{% endblock %}
+{% block auth_content %}
+  <form class="space-y-6" method="post">
+    {% csrf_token %}
+    <div class="space-y-4">
+      <div>
+        <label for="username" class="block text-sm font-medium text-foreground mb-2">{% trans "Username" %}</label>
+        <input id="username"
+               name="username"
+               type="text"
+               required
+               autofocus
+               placeholder="{% trans 'Choose a unique username' %}"
+               class="w-full px-4 py-3 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary">
+      </div>
+      <div>
+        <label for="email" class="block text-sm font-medium text-foreground mb-2">{% trans "Email Address" %}</label>
+        <input id="email"
+               name="email"
+               type="email"
+               required
+               {% if invitation_email %}value="{{ invitation_email }}" readonly{% endif %}
+               placeholder="{% trans 'Enter your email address' %}"
+               class="w-full px-4 py-3 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary {% if invitation_email %}bg-muted cursor-not-allowed{% endif %}">
+      </div>
+      <div>
+        <label for="password" class="block text-sm font-medium text-foreground mb-2">{% trans "Password" %}</label>
+        <input id="password"
+               name="password"
+               type="password"
+               required
+               placeholder="{% trans 'Create a strong password' %}"
+               class="w-full px-4 py-3 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary">
+      </div>
+      <div>
+        <label for="password_confirm"
+               class="block text-sm font-medium text-foreground mb-2">{% trans "Confirm Password" %}</label>
+        <input id="password_confirm"
+               name="password_confirm"
+               type="password"
+               required
+               placeholder="{% trans 'Confirm your password' %}"
+               class="w-full px-4 py-3 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary">
+      </div>
+    </div>
+    <div class="flex items-start">
+      <input id="terms"
+             name="terms"
+             type="checkbox"
+             required
+             class="h-4 w-4 text-primary focus:ring-primary border-border rounded mt-1">
+      <label for="terms"
+             class="ml-3 block text-sm text-muted-foreground leading-relaxed">
+        {% trans "I agree to the" %}
+        <a href="https://github.com/intellecap-weia-fpo/naari/blob/main/PRIVACY.md" class="text-primary hover:text-primary/80">{% trans "Terms of Service" %}</a>
+        {% trans "and" %}
+        <a href="https://github.com/intellecap-weia-fpo/naari/blob/main/PRIVACY.md" class="text-primary hover:text-primary/80">{% trans "Privacy Policy" %}</a>
+      </label>
+    </div>
+    <button type="submit"
+            class="w-full bg-primary text-primary-foreground py-3 px-4 rounded-lg font-medium hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2">
+      {% trans "Create account" %}
+    </button>
+    <div class="text-center">
+      <span class="text-sm text-muted-foreground">
+        {% trans "Already have an account?" %}
+        <a href="{% url 'auth_app:sign_in' %}"
+           class="text-primary hover:text-primary/80 font-medium">{% trans "Sign in" %}</a>
+      </span>
+    </div>
+  </form>
+{% endblock %}

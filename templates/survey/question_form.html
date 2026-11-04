@@ -1,0 +1,312 @@
+{% extends "base_app.html" %}
+{% load i18n %}
+{% load static %}
+{% block title %}{{ title }} - {{ site_config.site_name }}{% endblock %}
+{% block main_content %}
+  <div class="space-y-6">
+    <!-- Header -->
+    <div class="bg-card rounded-lg border border-border p-6">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 class="text-2xl font-bold text-card-foreground">{{ title }}</h1>
+          <p class="text-muted-foreground">
+            {% if question %}
+              Update your question details and settings
+            {% else %}
+              Add a new question to your survey
+            {% endif %}
+          </p>
+          {% if survey %}
+            <p class="text-sm text-muted-foreground mt-1">
+              Survey: <span class="font-medium">{{ survey.title }}</span>
+              {% if page %}• Page: <span class="font-medium">{{ page.title|default:"Untitled Page" }}</span>{% endif %}
+            </p>
+          {% endif %}
+        </div>
+        <div class="flex items-center gap-2">
+          <a href="{% url 'survey:survey_detail' survey.pk %}"
+             class="inline-flex items-center gap-2 px-4 py-2 border border-border rounded-lg text-sm font-medium text-card-foreground bg-background hover:bg-accent transition-colors">
+            <i class="fa fa-arrow-left text-xs"></i>
+            {% trans "Back to Survey" %}
+          </a>
+        </div>
+      </div>
+    </div>
+    <!-- Form -->
+    <div class="bg-card rounded-lg border border-border p-6">
+      <form method="post" class="space-y-6">
+        {% csrf_token %}
+        <!-- Question Key -->
+        <div class="space-y-2">
+          <label for="{{ form.key.id_for_label }}"
+                 class="block text-sm font-medium text-card-foreground">
+            {% trans "Question Key" %}
+          </label>
+          {{ form.key }}
+          {% if form.key.errors %}<div class="text-sm text-destructive">{{ form.key.errors|first }}</div>{% endif %}
+          <p class="text-xs text-muted-foreground">{% trans "Unique identifier for template variable references (optional)" %}</p>
+        </div>
+
+        <!-- Question Text -->
+        <div class="space-y-2">
+          <label for="{{ form.text.id_for_label }}"
+                 class="block text-sm font-medium text-card-foreground">
+            {% trans "Question Text" %}
+            <span class="text-destructive">*</span>
+          </label>
+          {{ form.text }}
+          {% if form.text.errors %}<div class="text-sm text-destructive">{{ form.text.errors|first }}</div>{% endif %}
+          <p class="text-xs text-muted-foreground">{% trans "Enter the question you want to ask respondents" %}</p>
+        </div>
+
+        <!-- Hint (optional) -->
+        <div class="space-y-2">
+          <label for="{{ form.hint.id_for_label }}"
+                 class="block text-sm font-medium text-card-foreground">{% trans "Hint (optional)" %}</label>
+          {{ form.hint }}
+          {% if form.hint.errors %}<div class="text-sm text-destructive">{{ form.hint.errors|first }}</div>{% endif %}
+          <p class="text-xs text-muted-foreground">{% trans "Short helper text shown under the question to guide respondents" %}</p>
+        </div>
+        <!-- Question Type -->
+        <div class="space-y-2">
+          <label for="{{ form.question_type.id_for_label }}"
+                 class="block text-sm font-medium text-card-foreground">
+            {% trans "Question Type" %}
+            <span class="text-destructive">*</span>
+          </label>
+          {{ form.question_type }}
+          {% if form.question_type.errors %}
+            <div class="text-sm text-destructive">{{ form.question_type.errors|first }}</div>
+          {% endif %}
+          <p class="text-xs text-muted-foreground">{% trans "Choose how respondents will answer this question" %}</p>
+        </div>
+
+        <!-- Filter Options From (optional) -->
+        <div class="space-y-2">
+          <label for="{{ form.filter_options_question.id_for_label }}"
+                 class="block text-sm font-medium text-card-foreground">Filter Options From</label>
+          {{ form.filter_options_question }}
+          {% if form.filter_options_question.errors %}
+            <div class="text-sm text-destructive">{{ form.filter_options_question.errors|first }}</div>
+          {% endif %}
+          <p class="text-xs text-muted-foreground">If set, this question's options are filtered/mapped from the selected options of the chosen question.</p>
+        </div>
+        <!-- Required Status -->
+        <div class="space-y-2">
+          <div class="flex items-center gap-3">
+            {{ form.is_required }}
+            <label for="{{ form.is_required.id_for_label }}"
+                   class="text-sm font-medium text-card-foreground">{% trans "Required Question" %}</label>
+          </div>
+          {% if form.is_required.errors %}
+            <div class="text-sm text-destructive">{{ form.is_required.errors|first }}</div>
+          {% endif %}
+          <p class="text-xs text-muted-foreground">{% trans "Mark this question as required if respondents must answer it" %}</p>
+        </div>
+        <!-- Order -->
+        <div class="space-y-2">
+          <label for="{{ form.order.id_for_label }}"
+                 class="block text-sm font-medium text-card-foreground">{% trans "Question Order" %}</label>
+          {{ form.order }}
+          {% if form.order.errors %}<div class="text-sm text-destructive">{{ form.order.errors|first }}</div>{% endif %}
+          <p class="text-xs text-muted-foreground">Position of this question in the survey (lower numbers appear first)</p>
+        </div>
+        
+        <!-- Validation Rules Section -->
+        <div class="bg-accent/50 rounded-lg p-4 space-y-4">
+          <h3 class="text-lg font-semibold text-card-foreground flex items-center gap-2">
+            <i class="fa fa-clipboard-check text-primary"></i>
+            {% trans "Validation Rules" %}
+          </h3>
+          <p class="text-sm text-muted-foreground">{% trans "Set validation rules to ensure users provide the correct type of data" %}</p>
+          
+          <!-- Debug: Show if fields exist -->
+          {% comment %}
+          Debug info:
+          min_length field exists: {{ form.min_length|yesno:"Yes,No" }}
+          max_length field exists: {{ form.max_length|yesno:"Yes,No" }}
+          {% endcomment %}
+          
+          <!-- Text Length Validation -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="text-validation" style="display: none;">
+            <div class="space-y-2">
+              <label for="{{ form.min_length.id_for_label }}"
+                     class="block text-sm font-medium text-card-foreground">{% trans "Minimum Length" %}</label>
+              {{ form.min_length }}
+              {% if form.min_length.errors %}<div class="text-sm text-destructive">{{ form.min_length.errors|first }}</div>{% endif %}
+              <p class="text-xs text-muted-foreground">{% trans "Minimum number of characters required" %}</p>
+            </div>
+            <div class="space-y-2">
+              <label for="{{ form.max_length.id_for_label }}"
+                     class="block text-sm font-medium text-card-foreground">{% trans "Maximum Length" %}</label>
+              {{ form.max_length }}
+              {% if form.max_length.errors %}<div class="text-sm text-destructive">{{ form.max_length.errors|first }}</div>{% endif %}
+              <p class="text-xs text-muted-foreground">{% trans "Maximum number of characters allowed" %}</p>
+            </div>
+          </div>
+          
+          <!-- Number Range Validation -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="number-validation" style="display: none;">
+            <div class="space-y-2">
+              <label for="{{ form.min_value.id_for_label }}"
+                     class="block text-sm font-medium text-card-foreground">{% trans "Minimum Value" %}</label>
+              {{ form.min_value }}
+              {% if form.min_value.errors %}<div class="text-sm text-destructive">{{ form.min_value.errors|first }}</div>{% endif %}
+              <p class="text-xs text-muted-foreground">{% trans "Minimum numeric value allowed" %}</p>
+            </div>
+            <div class="space-y-2">
+              <label for="{{ form.max_value.id_for_label }}"
+                     class="block text-sm font-medium text-card-foreground">{% trans "Maximum Value" %}</label>
+              {{ form.max_value }}
+              {% if form.max_value.errors %}<div class="text-sm text-destructive">{{ form.max_value.errors|first }}</div>{% endif %}
+              <p class="text-xs text-muted-foreground">{% trans "Maximum numeric value allowed" %}</p>
+            </div>
+          </div>
+          
+          <!-- Custom Pattern Validation -->
+          <div class="space-y-2">
+            <label for="{{ form.validation_pattern.id_for_label }}"
+                   class="block text-sm font-medium text-card-foreground">Custom Pattern (Regex)</label>
+            {{ form.validation_pattern }}
+            {% if form.validation_pattern.errors %}<div class="text-sm text-destructive">{{ form.validation_pattern.errors|first }}</div>{% endif %}
+            <p class="text-xs text-muted-foreground">
+              Use regular expressions for custom validation. Examples: 
+              <code class="bg-muted px-1 py-0.5 rounded text-xs">^[A-Z]{2}[0-9]{4}$</code> {% trans "(2 letters + 4 numbers)," %}
+              <code class="bg-muted px-1 py-0.5 rounded text-xs">^[0-9]{3}-[0-9]{3}-[0-9]{4}$</code> {% trans "(phone format)" %}
+            </p>
+          </div>
+          
+          <!-- Custom Error Message -->
+          <div class="space-y-2">
+            <label for="{{ form.validation_message.id_for_label }}"
+                   class="block text-sm font-medium text-card-foreground">{% trans "Custom Error Message" %}</label>
+            {{ form.validation_message }}
+            {% if form.validation_message.errors %}<div class="text-sm text-destructive">{{ form.validation_message.errors|first }}</div>{% endif %}
+            <p class="text-xs text-muted-foreground">Message shown to users when validation fails (optional)</p>
+          </div>
+          
+        </div>
+        <!-- Conditional Logic Section -->
+        <div class="bg-accent/50 rounded-lg p-4 space-y-4">
+          <h3 class="text-lg font-semibold text-card-foreground flex items-center gap-2">
+            <i class="fa fa-code-branch text-primary"></i>
+            {% trans "Conditional Logic" %}
+          </h3>
+          <p class="text-sm text-muted-foreground">
+            {% trans "Control when this question appears based on answers to previous questions" %}
+          </p>
+          
+          <button type="button" onclick="showConditionalLogicModal()"
+                  class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm">
+            <i class="fa fa-sliders-h"></i>
+            {% trans "Configure Conditional Logic" %}
+          </button>
+          
+          <div id="current-conditions-summary" class="text-sm text-muted-foreground hidden">
+            <p>{% trans "Current conditions will be displayed here" %}</p>
+          </div>
+        </div>
+
+        <!-- Form Actions -->
+        <div class="flex flex-col sm:flex-row gap-3 pt-6 border-t border-border">
+          <button type="submit"
+                  class="inline-flex items-center justify-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:bg-primary/90 transition-all duration-200 shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30">
+            <i class="fa fa-save text-sm"></i>
+            {% if question %}
+              Update Question
+            {% else %}
+              Create Question
+            {% endif %}
+          </button>
+          <a href="{% url 'survey:survey_detail' survey.pk %}"
+             class="inline-flex items-center justify-center gap-2 px-6 py-3 border border-border rounded-lg text-sm font-medium text-card-foreground bg-background hover:bg-accent transition-colors">
+            <i class="fa fa-times text-sm"></i>
+            {% trans "Cancel" %}
+          </a>
+        </div>
+      </form>
+    </div>
+    <!-- Help Section -->
+    {% if not question %}
+      <div class="bg-blue-50 border border-blue-200 rounded-lg p-6">
+        <div class="flex gap-4">
+          <div class="flex-shrink-0">
+            <i class="fa fa-info-circle text-blue-600 text-lg"></i>
+          </div>
+          <div class="space-y-2">
+            <h3 class="text-sm font-semibold text-blue-900">{% trans "Question Types" %}</h3>
+            <p class="text-sm text-blue-800">Different question types allow for various response formats:</p>
+            <ul class="text-sm text-blue-800 space-y-1 ml-4">
+              <li>
+                • <strong>{% trans "Text" %}</strong> {% trans "- Short single-line responses" %}
+              </li>
+              <li>
+                • <strong>{% trans "Textarea" %}</strong> {% trans "- Longer multi-line responses" %}
+              </li>
+              <li>
+                • <strong>{% trans "Radio Button" %}</strong> {% trans "- Single choice from multiple options" %}
+              </li>
+              <li>
+                • <strong>{% trans "Checkbox" %}</strong> {% trans "- Multiple choices from options" %}
+              </li>
+              <li>
+                • <strong>{% trans "Dropdown" %}</strong> {% trans "- Single choice from a dropdown menu" %}
+              </li>
+              <li>
+                • <strong>Number/Email/Date</strong> {% trans "- Specific data types with built-in validation" %}
+              </li>
+              <li>
+                • <strong>{% trans "Note/Information" %}</strong> {% trans "- Display information without collecting answers" %}
+              </li>
+              <li>
+                • <strong>{% trans "Consent Page" %}</strong> {% trans "- Display consent text with template variables" %}
+              </li>
+              <li>
+                • <strong>Validation Rules</strong> {% trans "- Set min/max lengths, values, or custom patterns" %}
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- Include Conditional Logic Modal -->
+  {% include "survey/includes/conditional_logic_modal.html" %}
+
+  <!-- JavaScript for showing/hiding validation fields based on question type -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const questionTypeField = document.getElementById('{{ form.question_type.id_for_label }}');
+      const textValidation = document.getElementById('text-validation');
+      const numberValidation = document.getElementById('number-validation');
+      
+      function toggleValidationFields() {
+        const selectedType = questionTypeField.value;
+        
+        // Hide all validation sections first
+        textValidation.style.display = 'none';
+        numberValidation.style.display = 'none';
+        
+        // Show relevant validation fields based on question type
+        if (['text', 'textarea', 'email'].includes(selectedType)) {
+          textValidation.style.display = 'grid';
+        } else if (selectedType === 'number') {
+          numberValidation.style.display = 'grid';
+        }
+        
+        // Hide validation sections for note and consent types
+        if (['note', 'consent'].includes(selectedType)) {
+          textValidation.style.display = 'none';
+          numberValidation.style.display = 'none';
+        }
+      }
+      
+      // Initial call to set correct state
+      toggleValidationFields();
+      
+      // Listen for changes
+      questionTypeField.addEventListener('change', toggleValidationFields);
+    });
+  </script>
+{% endblock %}

@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6">
+    {% component "breadcrumb" %}{% endcomponent %}
+
+    <div class="mb-6">
+        <h1 class="text-3xl font-bold text-foreground">{{ page_title }}</h1>
+        {% if page_subtitle %}
+        <p class="text-muted-foreground mt-1">{{ page_subtitle }}</p>
+        {% endif %}
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <!-- Total Users -->
+        <div class="bg-card border border-border rounded-lg p-6 shadow-sm">
+            <div class="flex items-center justify-between mb-2">
+                <h3 class="text-sm font-medium text-muted-foreground">{% trans "Total Users" %}</h3>
+                <i class="fa fa-users text-2xl text-primary"></i>
+            </div>
+            <p class="text-3xl font-bold text-foreground">{{ total_users }}</p>
+        </div>
+
+        <!-- Active Users -->
+        <div class="bg-card border border-border rounded-lg p-6 shadow-sm">
+            <div class="flex items-center justify-between mb-2">
+                <h3 class="text-sm font-medium text-muted-foreground">{% trans "Active Users" %}</h3>
+                <i class="fa fa-check-circle text-2xl text-green-500"></i>
+            </div>
+            <p class="text-3xl font-bold text-foreground">{{ active_users }}</p>
+        </div>
+
+        <!-- Admin Users -->
+        <div class="bg-card border border-border rounded-lg p-6 shadow-sm">
+            <div class="flex items-center justify-between mb-2">
+                <h3 class="text-sm font-medium text-muted-foreground">{% trans "Admin Users" %}</h3>
+                <i class="fa fa-user-shield text-2xl text-destructive"></i>
+            </div>
+            <p class="text-3xl font-bold text-foreground">{{ admin_users }}</p>
+        </div>
+
+        <!-- Staff Users -->
+        <div class="bg-card border border-border rounded-lg p-6 shadow-sm">
+            <div class="flex items-center justify-between mb-2">
+                <h3 class="text-sm font-medium text-muted-foreground">{% trans "Staff Users" %}</h3>
+                <i class="fa fa-user-tie text-2xl text-blue-500"></i>
+            </div>
+            <p class="text-3xl font-bold text-foreground">{{ staff_users }}</p>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="bg-card border border-border rounded-lg p-6 shadow-sm">
+        <h2 class="text-xl font-bold text-foreground mb-4">{% trans "Quick Actions" %}</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <a href="{% url 'management:user_list' %}" class="flex items-center p-4 bg-muted hover:bg-muted/80 rounded-lg transition-colors">
+                <i class="fa fa-users text-2xl text-primary mr-3"></i>
+                <div>
+                    <h3 class="font-semibold text-foreground">{% trans "Manage Users" %}</h3>
+                    <p class="text-sm text-muted-foreground">{% trans "View and manage all users" %}</p>
+                </div>
+            </a>
+
+            <a href="{% url 'management:user_create' %}" class="flex items-center p-4 bg-muted hover:bg-muted/80 rounded-lg transition-colors">
+                <i class="fa fa-user-plus text-2xl text-primary mr-3"></i>
+                <div>
+                    <h3 class="font-semibold text-foreground">{% trans "Add User" %}</h3>
+                    <p class="text-sm text-muted-foreground">{% trans "Create a new user account" %}</p>
+                </div>
+            </a>
+
+            <a href="{% url 'management:settings' %}" class="flex items-center p-4 bg-muted hover:bg-muted/80 rounded-lg transition-colors">
+                <i class="fa fa-cog text-2xl text-primary mr-3"></i>
+                <div>
+                    <h3 class="font-semibold text-foreground">{% trans "Settings" %}</h3>
+                    <p class="text-sm text-muted-foreground">{% trans "System configuration" %}</p>
+                </div>
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

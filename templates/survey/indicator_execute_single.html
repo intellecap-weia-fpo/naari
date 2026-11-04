@@ -1,0 +1,121 @@
+{% extends "base_app.html" %}
+{% load i18n %}
+{% load static %}
+{% load ist_time %}
+
+{% block title %}{{ indicator.name }} - Test Execution - {{ site_config.site_name }}{% endblock %}
+
+{% block main_content %}
+  <div class="max-w-6xl mx-auto p-6">
+    <!-- Back Button -->
+    <div class="mb-6">
+      <a href="{% url 'survey:survey_indicators' indicator.survey.pk %}"
+         class="inline-flex items-center gap-2 px-4 py-2 text-muted-foreground hover:text-card-foreground hover:bg-accent rounded-lg transition-colors">
+        <i class="fa fa-arrow-left text-sm"></i>
+        {% trans "Back to Indicators" %}
+      </a>
+    </div>
+
+    <!-- Header -->
+    <div class="bg-gradient-to-br from-primary via-primary/80 to-accent rounded-xl p-8 text-center text-primary-foreground mb-6">
+      <h1 class="text-3xl font-light mb-2">{{ indicator.name }}</h1>
+      <p class="text-lg opacity-90">Test Execution Results</p>
+    </div>
+
+    <!-- Test Execution Results -->
+    <div class="bg-card rounded-lg shadow-sm border mb-6">
+      <div class="p-6 border-b">
+        <h2 class="text-xl font-semibold">Test Execution</h2>
+        <p class="text-muted-foreground mt-1">Results of executing "{{ indicator.name }}" on a sample submission</p>
+      </div>
+
+      <div class="p-6">
+        <!-- Submission Info -->
+        <div class="mb-6">
+          <h3 class="text-lg font-medium mb-2">Test Submission</h3>
+          <div class="bg-muted/50 p-4 rounded-lg">
+            <div class="mb-4">
+              <span class="text-sm text-muted-foreground">Submission Title:</span>
+              <p class="font-medium text-lg">{{ submission.title }}</p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <span class="text-sm text-muted-foreground">User:</span>
+                <p class="font-medium">
+                  {% if submission.user %}
+                    {{ submission.user.get_full_name|default:submission.user.username }}
+                  {% else %}
+                    Anonymous
+                  {% endif %}
+                </p>
+              </div>
+              <div>
+                <span class="text-sm text-muted-foreground">Submitted:</span>
+                <p class="font-medium">{{ submission.submitted_at|ist_time }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Execution Result -->
+        <div class="mb-6">
+          <h3 class="text-lg font-medium mb-2">Execution Result</h3>
+          {% if error %}
+            <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+              <div class="flex items-center gap-2 text-red-800 mb-2">
+                <i class="fa fa-times-circle"></i>
+                <span class="font-medium">Execution Failed</span>
+              </div>
+              <pre class="text-sm text-red-700 whitespace-pre-wrap">{{ error }}</pre>
+            </div>
+          {% else %}
+            <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+              <div class="flex items-center gap-2 text-green-800 mb-2">
+                <i class="fa fa-check-circle"></i>
+                <span class="font-medium">Execution Successful</span>
+              </div>
+              <div class="text-sm">
+                <span class="text-muted-foreground">Result:</span>
+                <code class="bg-green-100 text-green-800 px-2 py-1 rounded ml-2">
+                  {{ result|default:"No result" }}
+                </code>
+              </div>
+            </div>
+          {% endif %}
+        </div>
+
+        <!-- Output (if any) -->
+        {% if output %}
+          <div class="mb-6">
+            <h3 class="text-lg font-medium mb-2">Output</h3>
+            <div class="bg-muted/50 p-4 rounded-lg">
+              <pre class="text-sm whitespace-pre-wrap">{{ output }}</pre>
+            </div>
+          </div>
+        {% endif %}
+
+        <!-- Submission Data (for debugging) -->
+        <div class="mb-6">
+          <h3 class="text-lg font-medium mb-2">Submission Data</h3>
+          <div class="bg-muted/50 p-4 rounded-lg">
+            <pre class="text-sm whitespace-pre-wrap">{{ submission_data|pprint }}</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="mt-6 flex items-center gap-4">
+      <a href="{% url 'survey:indicator_execute' indicator.pk %}"
+         class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
+        <i class="fa fa-play"></i>
+        Execute on All Submissions
+      </a>
+      <a href="{% url 'survey:survey_indicators' indicator.survey.pk %}"
+         class="inline-flex items-center gap-2 px-4 py-2 border border-muted-foreground text-muted-foreground rounded-lg hover:bg-muted transition-colors">
+        <i class="fa fa-arrow-left"></i>
+        Back to Indicators
+      </a>
+    </div>
+  </div>
+{% endblock %}

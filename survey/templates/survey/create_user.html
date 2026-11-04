@@ -1,0 +1,381 @@
+{% extends "base_app.html" %}
+{% load i18n %}
+
+{% block page_title_block %}
+<h1 class="text-2xl sm:text-3xl font-bold text-foreground bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text text-transparent">
+    {% trans "Create User" %}
+</h1>
+{% endblock %}
+
+{% block page_subtitle_block %}
+<p class="mt-2 text-muted-foreground">{% trans "Add a new user to the system" %}</p>
+{% endblock %}
+
+{% block page_actions %}
+<div class="flex flex-col sm:flex-row gap-3 lg:flex-shrink-0">
+    <a href="{% url 'survey:user_management' %}" class="inline-flex items-center justify-center px-4 py-2.5 rounded-xl shadow-sm text-sm font-medium text-card-foreground bg-background hover:bg-accent border border-border focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring transition-all duration-200 hover:scale-105 active:scale-95">
+        <i class="fa fa-arrow-left w-4 h-4 mr-2"></i>
+        {% trans "Back to Users" %}
+    </a>
+</div>
+{% endblock %}
+
+{% block main_content %}
+{% if use_survey_sidebar %}
+    {% include "survey/sidebar.html" %}
+{% endif %}
+<div class="space-y-6">
+    <!-- Create User Form -->
+    <div class="bg-card rounded-lg border border-border p-6">
+        <div class="space-y-6">
+            <div>
+                <h2 class="text-lg font-semibold text-card-foreground">{% trans "User Information" %}</h2>
+                <p class="text-sm text-muted-foreground">{% trans "Fill in the details for the new user" %}</p>
+            </div>
+
+            {% if messages %}
+                <div class="space-y-2">
+                    {% for message in messages %}
+                        <div class="p-4 rounded-lg {% if message.tags == 'error' %}bg-destructive/10 border border-destructive/20 text-destructive{% else %}bg-green-500/10 border border-green-500/20 text-green-700{% endif %}">
+                            <div class="flex items-center gap-2">
+                                <i class="fa {% if message.tags == 'error' %}fa-exclamation-circle{% else %}fa-check-circle{% endif %}"></i>
+                                <span>{{ message }}</span>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <form method="post" class="space-y-6" id="createUserForm">
+                {% csrf_token %}
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Username -->
+                    <div>
+                        <label for="username" class="block text-sm font-medium text-card-foreground mb-2">
+                            {% trans "Username" %} *
+                        </label>
+                        <input type="text" id="username" name="username" value="{{ form_data.username }}"
+                               class="form-control" placeholder="{% trans 'Enter username' %}" required
+                               style="text-transform: lowercase;"
+                               oninput="this.value = this.value.toLowerCase()">
+                        <p class="text-xs text-muted-foreground mt-1">{% trans "Username must be in lowercase letters only" %}</p>
+                        <p id="username-error" class="text-xs text-destructive mt-1 hidden"></p>
+                    </div>
+
+                    <!-- Email -->
+                    <div>
+                        <label for="email" class="block text-sm font-medium text-card-foreground mb-2">
+                            {% trans "Email Address" %}
+                        </label>
+                        <input type="email" id="email" name="email" value="{{ form_data.email }}"
+                               class="form-control" placeholder="{% trans 'user@example.com' %}">
+                        <p id="email-error" class="text-xs text-destructive mt-1 hidden"></p>
+                    </div>
+
+                    <!-- First Name -->
+                    <div>
+                        <label for="first_name" class="block text-sm font-medium text-card-foreground mb-2">
+                            {% trans "First Name" %}
+                        </label>
+                        <input type="text" id="first_name" name="first_name" value="{{ form_data.first_name }}"
+                               class="form-control" placeholder="{% trans 'Enter first name' %}">
+                    </div>
+
+                    <!-- Last Name -->
+                    <div>
+                        <label for="last_name" class="block text-sm font-medium text-card-foreground mb-2">
+                            {% trans "Last Name" %}
+                        </label>
+                        <input type="text" id="last_name" name="last_name" value="{{ form_data.last_name }}"
+                               class="form-control" placeholder="{% trans 'Enter last name' %}">
+                    </div>
+
+                    <!-- Password -->
+                    <div>
+                        <label for="password" class="block text-sm font-medium text-card-foreground mb-2">
+                            {% trans "Password" %} *
+                        </label>
+                        <input type="password" id="password" name="password"
+                               class="form-control" placeholder="{% trans 'Enter password' %}" required>
+                        <p id="password-error" class="text-xs text-destructive mt-1 hidden"></p>
+                    </div>
+
+                    <!-- Confirm Password -->
+                    <div>
+                        <label for="confirm_password" class="block text-sm font-medium text-card-foreground mb-2">
+                            {% trans "Confirm Password" %} *
+                        </label>
+                        <input type="password" id="confirm_password" name="confirm_password"
+                               class="form-control" placeholder="{% trans 'Confirm password' %}" required>
+                        <p id="confirm-password-error" class="text-xs text-destructive mt-1 hidden"></p>
+                    </div>
+
+                    <!-- User Role -->
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-card-foreground mb-2">
+                            {% trans "User Role" %} *
+                        </label>
+                        <div class="space-y-3">
+                            <!-- Row 1: Admin + Readonly Admin User -->
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <!-- Admin Role (Only visible to Admins) -->
+                                {% if is_admin %}
+                                <div class="flex items-start gap-3">
+                                    <input type="radio" id="role_admin" name="user_role" value="admin"
+                                           class="form-check-input mt-1" checked>
+                                    <label for="role_admin" class="flex-1 cursor-pointer">
+                                        <div class="font-medium text-card-foreground">{% trans "Admin User" %}</div>
+                                        <div class="text-sm text-muted-foreground">{% trans "Full access to all projects, submissions, and system settings" %}</div>
+                                    </label>
+                                </div>
+                                {% endif %}
+
+                                <!-- Readonly Admin User Role (Visible to both Admins and Managers) -->
+                                <div class="flex items-start gap-3">
+                                    <input type="radio" id="role_dashboard_viewer" name="user_role" value="dashboard_viewer"
+                                           class="form-check-input mt-1">
+                                    <label for="role_dashboard_viewer" class="flex-1 cursor-pointer">
+                                        <div class="font-medium text-card-foreground">{% trans "Readonly Admin User" %}</div>
+                                        <div class="text-sm text-muted-foreground">{% trans "Read-only access to all dashboard pages" %}</div>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Row 2: Manager + Supervisor + Add (Mobile app users) -->
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <!-- Manager Role (Visible to both Admins and Managers) -->
+                                <div class="flex items-start gap-3">
+                                    <input type="radio" id="role_manager" name="user_role" value="manager"
+                                           class="form-check-input mt-1" {% if not is_admin %}checked{% endif %}>
+                                    <label for="role_manager" class="flex-1 cursor-pointer">
+                                        <div class="font-medium text-card-foreground">{% trans "Manager" %}</div>
+                                        <div class="text-sm text-muted-foreground">{% trans "Access to submissions and user management only" %}</div>
+                                    </label>
+                                </div>
+
+                                <!-- Supervisor Role (Visible to both Admins and Managers) -->
+                                <div class="flex items-start gap-3">
+                                    <input type="radio" id="role_supervisor" name="user_role" value="supervisor"
+                                           class="form-check-input mt-1">
+                                    <label for="role_supervisor" class="flex-1 cursor-pointer">
+                                        <div class="font-medium text-card-foreground">{% trans "Supervisor" %}</div>
+                                        <div class="text-sm text-muted-foreground">{% trans "Read-only access to all submissions" %}</div>
+                                    </label>
+                                </div>
+
+                                <!-- Add (Mobile app users) Role (Visible to both Admins and Managers) -->
+                                <div class="flex items-start gap-3">
+                                    <input type="radio" id="role_normal" name="user_role" value="normal"
+                                           class="form-check-input mt-1">
+                                    <label for="role_normal" class="flex-1 cursor-pointer">
+                                        <div class="font-medium text-card-foreground">{% trans "Add (Mobile app users)" %}</div>
+                                        <div class="text-sm text-muted-foreground">{% trans "Access to assigned projects only" %}</div>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Project Assignment Section -->
+                    <div class="md:col-span-2" id="survey_assignment_section">
+                        <label class="block text-sm font-medium text-card-foreground mb-2">
+                            {% trans "Assign Projects" %}
+                        </label>
+                        <p class="text-sm text-muted-foreground mb-3">{% trans "Select projects to grant access to this user" %}</p>
+                        
+                        {% if available_surveys %}
+                        <div class="border border-border rounded-lg p-4 max-h-64 overflow-y-auto bg-background">
+                            <div class="space-y-2">
+                                <!-- Select All Option -->
+                                <div class="flex items-center gap-3 pb-2 border-b border-border">
+                                    <input type="checkbox" id="select_all_surveys" 
+                                           class="form-check-input h-4 w-4 rounded border-border">
+                                    <label for="select_all_surveys" class="text-sm font-medium text-card-foreground cursor-pointer">
+                                        {% trans "Select All Projects" %}
+                                    </label>
+                                </div>
+                                
+                                <!-- Individual Projects -->
+                                {% for survey in available_surveys %}
+                                <div class="flex items-start gap-3 py-1">
+                                    <input type="checkbox" id="survey_{{ survey.id }}" name="assigned_surveys" value="{{ survey.id }}"
+                                           class="form-check-input h-4 w-4 rounded border-border mt-0.5 survey-checkbox"
+                                           {% if survey.id|stringformat:"s" in form_data.assigned_surveys %}checked{% endif %}>
+                                    <label for="survey_{{ survey.id }}" class="flex-1 cursor-pointer">
+                                        <div class="font-medium text-card-foreground text-sm">{{ survey.title }}</div>
+                                        <div class="text-xs text-muted-foreground">
+                                            {% if survey.description %}
+                                                {{ survey.description|truncatewords:15 }}
+                                            {% else %}
+                                                {% trans "No description" %}
+                                            {% endif %}
+                                            {% if survey.is_active %}
+                                                <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">{% trans "Active" %}</span>
+                                            {% else %}
+                                                <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">{% trans "Inactive" %}</span>
+                                            {% endif %}
+                                        </div>
+                                    </label>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <p class="text-xs text-muted-foreground mt-2">
+                            <i class="fa fa-info-circle mr-1"></i>
+                            {% trans "You can explicitly assign projects to any user out of the active projects available." %}
+                        </p>
+                        {% else %}
+                        <div class="border border-border rounded-lg p-4 bg-muted/50">
+                            <p class="text-sm text-muted-foreground">
+                                <i class="fa fa-info-circle mr-2"></i>
+                                {% trans "No projects available. Create projects first to assign them to users." %}
+                            </p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Info Note -->
+                <div class="bg-primary/5 rounded-lg p-4 border border-primary/20">
+                    <div class="flex items-start gap-3">
+                        <i class="fa fa-info-circle text-primary text-lg mt-0.5"></i>
+                        <div class="flex-1">
+                            <p class="text-sm text-card-foreground">
+                                {% if is_admin %}
+                                    {% trans "Admin users have full system access. Managers can access submissions and user management. Supervisors have read-only access to all submissions. Readonly admin users can view all pages. Mobile app users can only access projects they are explicitly assigned to." %}
+                                {% else %}
+                                    {% trans "As a manager, you can create Manager, Supervisor, Readonly Admin User, and Normal users only. Managers can access submissions and user management. Supervisors have read-only access to all submissions. Readonly admin users can view all pages. Mobile app users can only access projects they are explicitly assigned to." %}
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-4 pt-6 border-t border-border/50">
+                    <button type="submit" class="inline-flex items-center justify-center px-6 py-3 bg-primary text-primary-foreground rounded-xl text-sm font-semibold hover:bg-primary/90 transition-all duration-200 shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 hover:-translate-y-0.5">
+                        <i class="fa fa-plus w-4 h-4 mr-2"></i>
+                        {% trans "Create User" %}
+                    </button>
+                    <a href="{% url 'survey:user_management' %}" class="inline-flex items-center justify-center px-6 py-3 border border-border rounded-xl text-sm font-medium text-card-foreground bg-background hover:bg-accent transition-all duration-200">
+                        {% trans "Cancel" %}
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('createUserForm');
+    const username = document.getElementById('username');
+    const email = document.getElementById('email');
+    const password = document.getElementById('password');
+    const confirmPassword = document.getElementById('confirm_password');
+
+    // Real-time validation
+    username.addEventListener('input', function() {
+        const usernameError = document.getElementById('username-error');
+        if (this.value && this.value !== this.value.toLowerCase()) {
+            usernameError.textContent = '{% trans "Username must be in lowercase" %}';
+            usernameError.classList.remove('hidden');
+            this.classList.add('border-destructive');
+        } else {
+            usernameError.classList.add('hidden');
+            this.classList.remove('border-destructive');
+        }
+    });
+
+    confirmPassword.addEventListener('input', function() {
+        const confirmError = document.getElementById('confirm-password-error');
+        if (this.value && password.value && this.value !== password.value) {
+            confirmError.textContent = '{% trans "Passwords do not match" %}';
+            confirmError.classList.remove('hidden');
+            this.classList.add('border-destructive');
+        } else {
+            confirmError.classList.add('hidden');
+            this.classList.remove('border-destructive');
+        }
+    });
+
+    password.addEventListener('input', function() {
+        // Revalidate confirm password when password changes
+        if (confirmPassword.value) {
+            confirmPassword.dispatchEvent(new Event('input'));
+        }
+    });
+
+    // Select All Projects functionality
+    const selectAllCheckbox = document.getElementById('select_all_surveys');
+    const surveyCheckboxes = document.querySelectorAll('.survey-checkbox');
+    
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', function() {
+            surveyCheckboxes.forEach(checkbox => {
+                checkbox.checked = this.checked;
+            });
+        });
+
+        // Update "Select All" when individual checkboxes change
+        surveyCheckboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                const allChecked = Array.from(surveyCheckboxes).every(cb => cb.checked);
+                const someChecked = Array.from(surveyCheckboxes).some(cb => cb.checked);
+                selectAllCheckbox.checked = allChecked;
+                selectAllCheckbox.indeterminate = someChecked && !allChecked;
+            });
+        });
+    }
+
+    // Form submission validation
+    form.addEventListener('submit', function(e) {
+        let isValid = true;
+
+        // Clear all previous errors
+        document.querySelectorAll('[id$="-error"]').forEach(el => el.classList.add('hidden'));
+        document.querySelectorAll('.form-control').forEach(el => el.classList.remove('border-destructive'));
+
+        // Validate username
+        if (!username.value) {
+            document.getElementById('username-error').textContent = '{% trans "Username is required" %}';
+            document.getElementById('username-error').classList.remove('hidden');
+            username.classList.add('border-destructive');
+            isValid = false;
+        }
+
+        // Validate password
+        if (!password.value) {
+            document.getElementById('password-error').textContent = '{% trans "Password is required" %}';
+            document.getElementById('password-error').classList.remove('hidden');
+            password.classList.add('border-destructive');
+            isValid = false;
+        }
+
+        // Validate confirm password
+        if (!confirmPassword.value) {
+            document.getElementById('confirm-password-error').textContent = '{% trans "Please confirm your password" %}';
+            document.getElementById('confirm-password-error').classList.remove('hidden');
+            confirmPassword.classList.add('border-destructive');
+            isValid = false;
+        } else if (password.value !== confirmPassword.value) {
+            document.getElementById('confirm-password-error').textContent = '{% trans "Passwords do not match" %}';
+            document.getElementById('confirm-password-error').classList.remove('hidden');
+            confirmPassword.classList.add('border-destructive');
+            isValid = false;
+        }
+
+        if (!isValid) {
+            e.preventDefault();
+            // Scroll to first error
+            const firstError = document.querySelector('.border-destructive');
+            if (firstError) {
+                firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

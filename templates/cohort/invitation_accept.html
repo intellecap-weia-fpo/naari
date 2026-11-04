@@ -1,0 +1,147 @@
+{% extends "base_auth.html" %}
+{% load i18n %}
+{% load static %}
+{% block title %}Join {{ invitation.startup.name }} - {{ site_config.site_name }}{% endblock %}
+{% block main_content %}
+  <div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-md w-full space-y-8">
+      <!-- Header -->
+      <div class="text-center">
+        <div class="mx-auto h-20 w-20 bg-gradient-to-br from-primary to-accent rounded-2xl flex items-center justify-center mb-6">
+          <i class="fa fa-rocket text-2xl text-primary-foreground"></i>
+        </div>
+        <h2 class="text-3xl font-extrabold text-card-foreground">
+          Join {{ invitation.startup.name }}
+        </h2>
+        <p class="mt-2 text-sm text-muted-foreground">
+          {% trans "You've been invited to be part of something amazing" %}
+        </p>
+      </div>
+
+      <!-- Startup Information Card -->
+      <div class="bg-card rounded-xl border border-border shadow-sm p-6">
+        <div class="flex items-start gap-4 mb-4">
+          {% if invitation.startup.logo %}
+            <div class="w-16 h-16 rounded-xl overflow-hidden ring-2 ring-border">
+              <img src="{{ invitation.startup.logo.url }}" alt="{{ invitation.startup.name }}" class="w-full h-full object-cover">
+            </div>
+          {% else %}
+            <div class="w-16 h-16 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center ring-2 ring-border">
+              <span class="text-xl font-bold text-primary">{{ invitation.startup.name|slice:":1"|upper }}</span>
+            </div>
+          {% endif %}
+          <div class="flex-1">
+            <h3 class="text-lg font-semibold text-card-foreground">{{ invitation.startup.name }}</h3>
+            <p class="text-sm text-muted-foreground">{{ invitation.startup.get_industry_display }}{% if invitation.startup.stage %} • {{ invitation.startup.get_stage_display }}{% endif %}</p>
+          </div>
+        </div>
+        
+        <p class="text-sm text-muted-foreground mb-4">{{ invitation.startup.description|truncatewords:25 }}</p>
+        
+        <div class="flex items-center justify-between text-sm">
+          <div>
+            <span class="text-muted-foreground">Your role:</span>
+            <span class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
+              {{ invitation.get_role_display }}
+            </span>
+          </div>
+          <div class="text-muted-foreground">
+            <i class="fa fa-clock text-xs mr-1"></i>
+            Expires {{ invitation.expires_at|date:"M d" }}
+          </div>
+        </div>
+      </div>
+
+      <!-- Invitation Details -->
+      <div class="bg-muted/20 rounded-lg p-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
+            <span class="text-sm font-medium text-muted-foreground">
+              {{ invitation.invited_by.get_full_name|default:invitation.invited_by.username|slice:":1"|upper }}
+            </span>
+          </div>
+          <div>
+            <p class="text-sm font-medium text-card-foreground">
+              Invited by {{ invitation.invited_by.get_full_name|default:invitation.invited_by.username }}
+            </p>
+            <p class="text-xs text-muted-foreground">{{ invitation.invited_at|date:"F d, Y" }}</p>
+          </div>
+        </div>
+      </div>
+
+      {% if user_exists %}
+        <!-- Existing User - Redirect to Login -->
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+          <div class="flex items-center">
+            <i class="fa fa-info-circle text-blue-500 mr-2"></i>
+            <p class="text-sm text-blue-800">
+              {% trans "We found an existing account with this email. Please sign in to join the team." %}
+            </p>
+          </div>
+        </div>
+
+        <form method="post" class="space-y-6">
+          {% csrf_token %}
+          
+          <!-- Action Buttons -->
+          <div class="flex gap-3">
+            <button type="submit" 
+                    name="action" 
+                    value="proceed_login"
+                    class="flex-1 flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors">
+              <i class="fa fa-sign-in-alt mr-2"></i>
+              {% trans "Sign In to Join" %}
+            </button>
+            
+            <button type="submit" 
+                    name="action" 
+                    value="decline"
+                    class="flex-none px-6 py-3 border border-border rounded-lg shadow-sm text-sm font-medium text-card-foreground bg-card hover:bg-accent focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors">
+              {% trans "Decline" %}
+            </button>
+          </div>
+        </form>
+
+      {% else %}
+        <!-- New User - Redirect to Signup -->
+        <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+          <div class="flex items-center">
+            <i class="fa fa-user-plus text-green-500 mr-2"></i>
+            <p class="text-sm text-green-800">
+              {% trans "Create a new account to join the team." %}
+            </p>
+          </div>
+        </div>
+
+        <form method="post" class="space-y-6">
+          {% csrf_token %}
+          
+          <!-- Action Buttons -->
+          <div class="flex gap-3">
+            <button type="submit" 
+                    name="action" 
+                    value="proceed_signup"
+                    class="flex-1 flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors">
+              <i class="fa fa-user-plus mr-2"></i>
+              {% trans "Create Account to Join" %}
+            </button>
+            
+            <button type="submit" 
+                    name="action" 
+                    value="decline"
+                    class="flex-none px-6 py-3 border border-border rounded-lg shadow-sm text-sm font-medium text-card-foreground bg-card hover:bg-accent focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors">
+              {% trans "Decline" %}
+            </button>
+          </div>
+        </form>
+      {% endif %}
+
+      <!-- Additional Info -->
+      <div class="text-center">
+        <p class="text-xs text-muted-foreground">
+          By accepting this invitation, you agree to join {{ invitation.startup.name }} as a {{ invitation.get_role_display|lower }}.
+        </p>
+      </div>
+    </div>
+  </div>
+{% endblock %}

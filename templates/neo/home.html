@@ -1,0 +1,129 @@
+{% extends 'base_app.html' %}
+{% load i18n %}
+{% block title %}{{ site_config.site_name }} - {% trans "Home" %}{% endblock %}
+{% block main_content %}
+<div class="space-y-8">
+  <!-- Header Section -->
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-3xl font-bold text-foreground">
+       {% trans "Welcome back" %}, {{ user.get_full_name|default:user.username }}! 👋
+      </h1>
+
+      <p class="text-muted-foreground mt-1">{% trans "Here's what's happening with your business today" %}</p>
+    </div>
+    <button @click="sidebarOpen = true"
+      class="inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg text-muted-foreground bg-card border border-border hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-ring">
+      <i class="fa fa-plus mr-2"></i>
+      {% trans "Quick Actions" %}
+    </button>
+  </div>
+  <!-- Recent Items Section -->
+  <div class="bg-card rounded-lg border border-border p-6">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-lg font-semibold text-card-foreground">{% trans "Recent Items" %}</h2>
+      <button class="text-sm text-primary hover:text-primary/80">{% trans "View all" %}</button>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {% for activity in recent_activities %}
+      <div class="flex items-center space-x-3 p-3 rounded-lg hover:bg-accent/50 cursor-pointer">
+        <div class="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+          <i class="{{ activity.icon_class }} text-primary"></i>
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-medium text-card-foreground truncate">{{ activity.title }}</p>
+          <p class="text-xs text-muted-foreground">{{ activity.created_at|timesince }} ago</p>
+        </div>
+      </div>
+      {% empty %}
+      <div class="col-span-full text-center py-8">
+        <i class="fa fa-clock text-2xl text-muted-foreground mb-2"></i>
+        <p class="text-muted-foreground">{% trans "No recent activities" %}</p>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  <!-- Applications Grid -->
+  <div>
+    <h2 class="text-lg font-semibold text-foreground mb-4">{% trans "Applications" %}</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      {% for app in apps %}
+      <a href="{{ app.url }}" class="group">
+        <div
+          class="bg-card rounded-lg border border-border p-6 hover:shadow-md hover:border-primary/20 transition-all duration-200 flex flex-col h-full">
+          <div class="flex items-center space-x-4">
+            <div
+              class="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center group-hover:bg-primary/20 transition-colors flex-shrink-0">
+              <i class="{{ app.icon_class }} text-xl text-primary"></i>
+            </div>
+            <div class="flex-1 min-w-0">
+              <h3 class="text-base font-semibold text-card-foreground group-hover:text-primary transition-colors">{{
+                app.name }}</h3>
+              <p class="text-sm text-muted-foreground mt-1 line-clamp-2">{{ app.description }}</p>
+            </div>
+          </div>
+          <div class="mt-4 flex items-center justify-between mt-auto">
+            <div class="flex -space-x-1">
+              {% for role in app.roles %}
+              <span
+                class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-secondary/10 text-secondary-foreground">
+                {{ role }}
+              </span>
+              {% endfor %}
+            </div>
+            <i
+              class="fa fa-chevron-right text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all"></i>
+          </div>
+        </div>
+      </a>
+      {% empty %}
+      <div class="col-span-full text-center py-12">
+        <i class="fa fa-th text-4xl text-muted mb-4"></i>
+        <p class="text-muted-foreground">{% trans "No applications available" %}</p>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  <!-- Quick Stats -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div class="bg-card rounded-lg border border-border p-6">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-sm text-muted-foreground">{% trans "Total Users" %}</p>
+          <p class="text-2xl font-bold text-card-foreground">{{ total_users|default:0 }}</p>
+        </div>
+        <div class="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
+          <i class="fa fa-user text-primary"></i>
+        </div>
+      </div>
+      <div class="mt-4 flex items-center text-sm">
+        {% if user_growth_percentage >= 0 %}
+        <span class="text-green-600">+{{ user_growth_percentage }}%</span>
+        {% else %}
+        <span class="text-red-600">{{ user_growth_percentage }}%</span>
+        {% endif %}
+        <span class="text-muted-foreground ml-2">{% trans "from last month" %}</span>
+      </div>
+    </div>
+    <div class="bg-card rounded-lg border border-border p-6">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-sm text-muted-foreground">{% trans "Active Sessions" %}</p>
+          <p class="text-2xl font-bold text-card-foreground">{{ active_sessions|default:0 }}</p>
+        </div>
+        <div class="w-12 h-12 bg-secondary/10 rounded-lg flex items-center justify-center">
+          <i class="fa fa-activity text-secondary"></i>
+        </div>
+      </div>
+      <div class="mt-4 flex items-center text-sm">
+        {% if session_growth_percentage >= 0 %}
+        <span class="text-green-600">+{{ session_growth_percentage }}%</span>
+        {% else %}
+        <span class="text-red-600">{{ session_growth_percentage }}%</span>
+        {% endif %}
+        <span class="text-muted-foreground ml-2">{% trans "from yesterday" %}</span>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

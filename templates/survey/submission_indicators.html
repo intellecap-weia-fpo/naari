@@ -1,0 +1,160 @@
+{% extends "base_app.html" %}
+{% load i18n %}
+{% load static %}
+{% load ist_time %}
+
+{% block title %}Submission #{{ submission.pk }} - Indicators - {{ site_config.site_name }}{% endblock %}
+
+{% block main_content %}
+  <div class="max-w-6xl mx-auto p-6">
+    <!-- Back Button -->
+    <div class="mb-6">
+      <a href="{% url 'survey:submission_detail' survey.pk submission.pk %}"
+         class="inline-flex items-center gap-2 px-4 py-2 text-muted-foreground hover:text-card-foreground hover:bg-accent rounded-lg transition-colors">
+        <i class="fa fa-arrow-left text-sm"></i>
+        {% trans "Back to Submission" %}
+      </a>
+    </div>
+
+    <!-- Header -->
+    <div class="bg-gradient-to-br from-primary via-primary/80 to-accent rounded-xl p-8 text-center text-primary-foreground mb-6">
+      <h1 class="text-3xl font-light mb-2">Submission #{{ submission.pk }}</h1>
+      <p class="text-lg opacity-90">{{ survey.title }} - Indicator Results</p>
+      <div class="flex items-center justify-center gap-6 text-sm opacity-80 mt-4">
+        <div class="flex items-center gap-2">
+          <i class="fa fa-user"></i>
+          <span>{{ submission.get_submitter_display }}</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <i class="fa fa-calendar"></i>
+          <span>{{ submission.submitted_at|ist_time }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Summary Stats -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+      <div class="bg-card rounded-lg p-6 text-center">
+        <div class="text-3xl font-bold text-primary">{{ total_indicators }}</div>
+        <div class="text-muted-foreground">Total Indicators</div>
+      </div>
+
+      <div class="bg-card rounded-lg p-6 text-center">
+        <div class="text-3xl font-bold text-green-600">{{ successful_calculations }}</div>
+        <div class="text-muted-foreground">Successful Calculations</div>
+      </div>
+
+      <div class="bg-card rounded-lg p-6 text-center">
+        <div class="text-3xl font-bold text-red-600">{{ failed_calculations }}</div>
+        <div class="text-muted-foreground">Failed Calculations</div>
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div class="bg-card rounded-lg shadow-sm border">
+      <div class="p-6 border-b">
+        <h2 class="text-xl font-semibold">Indicator Results</h2>
+        <p class="text-muted-foreground mt-1">Results for this submission</p>
+      </div>
+
+      {% if results %}
+        <div class="divide-y">
+          {% for result in results %}
+            <div class="p-6">
+              <div class="flex items-start justify-between mb-3">
+                <div>
+                  <h3 class="text-lg font-medium text-card-foreground">{{ result.indicator.name }}</h3>
+                  {% if result.indicator.description %}
+                    <p class="text-sm text-muted-foreground mt-1">{{ result.indicator.description }}</p>
+                  {% endif %}
+                </div>
+                <div class="flex items-center gap-2">
+                  {% if result.success %}
+                    <span class="inline-flex items-center px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
+                      <i class="fa fa-check-circle mr-1"></i>
+                      Success
+                    </span>
+                  {% else %}
+                    <span class="inline-flex items-center px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs font-medium">
+                      <i class="fa fa-times-circle mr-1"></i>
+                      Failed
+                    </span>
+                  {% endif %}
+
+                  {% if result.existing %}
+                    <span class="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                      <i class="fa fa-database mr-1"></i>
+                      Cached
+                    </span>
+                  {% else %}
+                    <span class="inline-flex items-center px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">
+                      <i class="fa fa-lightning mr-1"></i>
+                      New
+                    </span>
+                  {% endif %}
+                </div>
+              </div>
+
+              <div class="space-y-3">
+                {% if result.success %}
+                  <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div class="flex items-center justify-between mb-2">
+                      <span class="text-sm font-medium text-green-800">Result</span>
+                      <span class="text-xs text-muted-foreground">{{ result.calculated_at|ist_time }}</span>
+                    </div>
+                    <div class="bg-white rounded border border-green-200 p-3">
+                      {% if result.result is not None %}
+                        <div class="text-lg font-bold text-green-700">{{ result.result }}</div>
+                      {% else %}
+                        <p class="text-sm text-muted-foreground italic">No result data</p>
+                      {% endif %}
+                    </div>
+                  </div>
+                {% else %}
+                  <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <div class="flex items-center justify-between mb-2">
+                      <span class="text-sm font-medium text-red-800">Error</span>
+                      <span class="text-xs text-muted-foreground">{{ result.calculated_at|ist_time }}</span>
+                    </div>
+                    <div class="bg-white rounded border border-red-200 p-3">
+                      {% if result.error_message %}
+                        <pre class="text-sm text-red-700 whitespace-pre-wrap">{{ result.error_message }}</pre>
+                      {% else %}
+                        <p class="text-sm text-muted-foreground italic">Unknown error occurred</p>
+                      {% endif %}
+                    </div>
+                  </div>
+                {% endif %}
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="p-12 text-center text-muted-foreground">
+          <i class="fa fa-chart-line text-4xl mb-4 opacity-50"></i>
+          <h3 class="text-lg font-medium mb-2">No Active Indicators</h3>
+          <p>There are no active indicators for this survey.</p>
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- Actions -->
+    <div class="mt-6 flex items-center gap-4">
+      <a href="{% url 'survey:submission_detail' survey.pk submission.pk %}"
+         class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
+        <i class="fa fa-arrow-left"></i>
+        Back to Submission
+      </a>
+      <a href="{% url 'survey:survey_submissions' survey.pk %}"
+         class="inline-flex items-center gap-2 px-4 py-2 border border-muted-foreground text-muted-foreground rounded-lg hover:bg-muted transition-colors">
+        <i class="fa fa-list"></i>
+        View All Submissions
+      </a>
+      <a href="{% url 'survey:survey_indicators' survey.pk %}"
+         class="inline-flex items-center gap-2 px-4 py-2 border border-muted-foreground text-muted-foreground rounded-lg hover:bg-muted transition-colors">
+        <i class="fa fa-cogs"></i>
+        Manage Indicators
+      </a>
+    </div>
+  </div>
+{% endblock %}

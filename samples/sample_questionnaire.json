@@ -1,0 +1,38 @@
+{
+  "title": "Sample: Women farmers' household survey",
+  "description": "An original demonstration questionnaire for trying NAARI. It is not a validated instrument and is not derived from any published index.",
+  "default_language": "en",
+  "consent_text": "This is a demonstration survey. Taking part is voluntary. You can skip any question or stop at any time. Your answers are seen only by the team running this survey. Do you agree to take part?",
+  "pages": [
+    {
+      "title": "About the household",
+      "questions": [
+        {"key": "state", "text": "State", "type": "text", "required": true},
+        {"key": "district", "text": "District", "type": "text", "required": true},
+        {"text": "How many people live in your household?", "type": "number", "required": true},
+        {"text": "Does your household grow crops or keep livestock?", "type": "radio", "required": true,
+         "options": ["Crops only", "Livestock only", "Both", "Neither"]}
+      ]
+    },
+    {
+      "title": "Farm decisions",
+      "questions": [
+        {"text": "Who mostly decides which crops to grow this season?", "type": "radio", "required": true,
+         "options": ["I decide", "I decide jointly with someone else", "Someone else decides", "Does not apply"]},
+        {"text": "Who mostly decides how money from the farm is spent?", "type": "radio", "required": true,
+         "options": ["I decide", "I decide jointly with someone else", "Someone else decides", "Does not apply"]},
+        {"text": "Which of these have you used in the last 12 months?", "type": "checkbox",
+         "options": ["Bank account", "Self-help group savings", "Crop insurance", "Farm advisory service", "None of these"]}
+      ]
+    },
+    {
+      "title": "Groups and time",
+      "questions": [
+        {"text": "Are you a member of a farmer producer organisation or self-help group?", "type": "radio", "required": true,
+         "options": ["Yes", "No", "Not sure"]},
+        {"text": "On a typical day, about how many hours do you spend on farm work?", "type": "number"},
+        {"text": "Is there anything else you would like to tell us?", "type": "textarea"}
+      ]
+    }
+  ]
+}

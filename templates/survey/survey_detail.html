@@ -1,0 +1,4069 @@
+{% extends "base_app.html" %}
+{% load i18n %}
+{% load static %}
+{% block title %}{{ survey.title }} - {{ site_config.site_name }}{% endblock %}
+{% block extra_css %}
+  {{ block.super }}
+  <style>
+    .sortable-ghost {
+      opacity: 0.4;
+      background: hsl(var(--muted) / 0.5);
+    }
+
+    .sortable-chosen {
+      cursor: grabbing;
+    }
+
+    .drag-handle,
+    .drag-handle-option {
+      cursor: grab;
+    }
+
+    .drag-handle:active,
+    .drag-handle-option:active {
+      cursor: grabbing;
+    }
+  </style>
+{% endblock %}
+{% block extra_head %}
+  {{ block.super }}
+{% endblock %}
+{% block main_container_class %}max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-3 pb-8 h-full{% endblock %}
+{% block main_content %}
+  {% csrf_token %}
+  <script>
+    function surveyBuilder() {
+      return {
+        initialized: false,
+        pages: JSON.parse('{{ pages_json|escapejs }}'),
+        showAddQuestion: false,
+        newQuestionText: '',
+        newQuestionType: 'text',
+        newQuestionHint: '',
+        newQuestionMinLength: null,
+        newQuestionMaxLength: null,
+        newQuestionMinValue: null,
+        newQuestionMaxValue: null,
+        newQuestionPattern: '',
+        newQuestionMessage: '',
+        showValidationRules: false,
+        editingValidation: null,
+        editingHint: null,
+        editingGroup: null,
+        // Evaluator condition editing
+        showEvaluatorModal: false,
+        editingEvaluator: null,
+        editingKey: null,
+        isLoading: false,
+        currentPageId: null,
+        selectedPageId: null, // Holds the dropdown selection before loading
+        isSwitchingPage: false,
+        // Translation-related properties
+        selectedDisplayLanguage: '{{ survey.default_language }}',
+        availableLanguages: [],
+        availableNewLanguages: [],
+        translations: {},
+        showLanguageModal: false,
+        showTranslationModal: false,
+        newLanguage: '',
+        translationModal: {
+          type: '',
+          id: null,
+          originalText: '',
+          translatedText: '',
+          bulkTranslations: {}
+        },
+        
+        // Sharing-related properties
+        showSharingModal: false,
+        userSearchQuery: '',
+        searchResults: [],
+        invitations: [],
+        isSearching: false,
+        searchTimeout: null,
+        
+        // Clone survey properties
+        showCloneSurveyModal: false,
+        cloneSurveyTitle: '{{ survey.title }} (Copy)',
+        cloningInProgress: false,
+        
+        // Bulk translation properties
+        showBulkTranslateModal: false,
+        bulkTranslateLanguage: '',
+        bulkTranslateProgress: {
+          total: 0,
+          completed: 0,
+          currentItem: ''
+        },
+        
+        // Sub-questions management
+        showSubQuestionsModal: false,
+        subQuestionsModal: null,
+        newSubQuestionText: '',
+        newSubQuestionType: 'text',
+        newSubQuestionRequired: false,
+        editingSubQuestion: null,
+        
+        // Sub-question options management
+        showSubQuestionOptionsModal: false,
+        subQuestionOptionsModal: null,
+        newSubQuestionOptionText: '',
+
+        // Delete confirmation
+        showDeleteConfirm: false,
+        deleteQuestionId: null,
+
+        // Conditional logic management
+        showConditionModal: false,
+        conditionModal: {
+          question: null,
+          conditions: [],
+          availableQuestions: [],
+          showOptionsDropdown: false,
+          targetQuestionOptions: []
+        },
+        newCondition: {
+          target_question_id: '',
+          condition_type: 'equals',
+          value: '',
+          logic_operator: 'AND'
+        },
+
+        // Option-level conditional logic
+        showOptionConditionModal: false,
+        optionConditionModal: {
+          option: null,
+          questionId: null,
+          conditions: [],
+          pages: [],
+          selectedPageId: 'current',
+          currentPageId: '',
+          availableQuestions: [],
+          showOptionsDropdown: false,
+          targetQuestionOptions: []
+        },
+        newOptionCondition: {
+          target_question_id: '',
+          condition_type: 'equals',
+          value: '',
+          logic_operator: 'AND'
+        },
+
+        // Option warning configuration
+        showOptionWarningModal: false,
+        optionWarningModal: null,
+
+        // Regex presets for quick validation setup
+        regexPresets: [
+          { label: 'Email', pattern: 'Email', message: 'Please enter a valid email address.' },
+          { label: 'Indian Mobile', pattern: 'Indian Mobile', message: 'Enter a valid Indian mobile number.' },
+          { label: 'Letters Only', pattern: 'Letters Only', message: 'Only letters are allowed.' },
+          { label: 'Letters & Spaces', pattern: 'Letters & Spaces', message: 'Use letters and spaces only.' },
+          { label: 'Alphanumeric', pattern: 'Alphanumeric', message: 'Use letters and numbers only.' },
+          { label: 'Alphanumeric & Spaces', pattern: 'Alphanumeric & Spaces', message: 'Letters, numbers and spaces only.' },
+          { label: 'Indian PIN', pattern: 'Indian PIN', message: 'Enter a valid 6-digit PIN code.' },
+          { label: 'URL (http/https)', pattern: 'URL (http/https)', message: 'Enter a valid URL.' },
+          { label: 'Date YYYY-MM-DD', pattern: 'Date YYYY-MM-DD', message: 'Enter date as YYYY-MM-DD.' },
+          { label: 'Time HH:MM', pattern: 'Time HH:MM', message: 'Enter time as HH:MM (24h).' }
+        ],
+
+        get totalQuestions() {
+          return this.pages.reduce((total, page) => total + (page.questions?.length || 0), 0);
+        },
+
+        get currentPage() {
+          return this.pages.find(page => page.id === this.currentPageId) || this.pages[0] || null;
+        },
+
+        getCurrentPageIndex() {
+          return this.pages.findIndex(page => page.id === this.currentPageId);
+        },
+
+        async switchPage() {
+          if (this.currentPageId === this.selectedPageId || !this.selectedPageId) return;
+          
+          this.isSwitchingPage = true;
+          // Simulate loading for visual feedback
+          await new Promise(resolve => setTimeout(resolve, 300));
+          this.currentPageId = this.selectedPageId;
+          this.isSwitchingPage = false;
+        },
+
+        async init() {
+          // Ensure all arrays are properly initialized
+          if (!Array.isArray(this.pages)) {
+            this.pages = [];
+          }
+          // Set initial current page
+          if (this.pages.length > 0 && !this.currentPageId) {
+            this.currentPageId = this.pages[0].id;
+          } else if (this.pages.length > 0) {
+            // Set from the first page if we have pages but currentPageId is null
+            this.currentPageId = this.pages[0].id;
+          }
+          this.selectedPageId = this.currentPageId;
+          // Initialize with default language
+          this.availableLanguages = [{
+            code: '{{ survey.default_language }}',
+            name: 'English',
+            is_default: true
+          }];
+          // Load available languages from server
+          await this.loadLanguages();
+          // Load translations only when needed (not on page load)
+          // await this.loadAllTranslations();
+          // Mark as initialized
+          this.initialized = true;
+
+          // Initialize option warning modal state
+          this.resetOptionWarningModal();
+
+          // Load initial invitations
+          await this.loadInvitations();
+          
+          // Set up watcher for page changes to load translations
+          this.$watch('currentPageId', async (newPageId, oldPageId) => {
+            if (newPageId && newPageId !== oldPageId) {
+              await this.loadTranslationsForPage(newPageId);
+            }
+          });
+          // Set up watcher for language changes to reload translations
+          this.$watch('selectedDisplayLanguage', async (newLang, oldLang) => {
+            if (newLang && newLang !== oldLang && this.currentPageId) {
+              await this.loadTranslationsForPage(this.currentPageId);
+            }
+          });
+        },
+
+        applyRegexPreset(preset, target = 'edit') {
+          if (!preset) return;
+          if (target === 'edit' && this.editingValidation) {
+            this.editingValidation.validation_pattern = preset.pattern;
+            // Only set message if empty to not overwrite custom messages unintentionally
+            if (!this.editingValidation.validation_message) {
+              this.editingValidation.validation_message = preset.message;
+            }
+          } else if (target === 'add') {
+            this.newQuestionPattern = preset.pattern;
+            if (!this.newQuestionMessage) {
+              this.newQuestionMessage = preset.message;
+            }
+          }
+        },
+
+        // Variable helpers for inline templating in question text/hint
+        extractVars(str) {
+          if (!str) return [];
+          const regex = new RegExp('{% templatetag openvariable %}\\s*([A-Za-z_][\\w]*)\\s*{% templatetag closevariable %}', 'g');
+          const set = new Set();
+          let m;
+          while ((m = regex.exec(str)) !== null) {
+            set.add(m[1]);
+          }
+          return Array.from(set);
+        },
+        getAllKeys(excludeQuestionId = null) {
+          const keys = [];
+          for (const p of this.pages) {
+            if (!p.questions) continue;
+            for (const q of p.questions) {
+              if (q && q.key && (!excludeQuestionId || q.id !== excludeQuestionId)) keys.push(q.key);
+            }
+          }
+          return keys;
+        },
+        getUnknownVars(text, excludeQuestionId = null) {
+          const vars = this.extractVars(text);
+          const known = new Set(this.getAllKeys(excludeQuestionId));
+          return vars.filter(v => !known.has(v));
+        },
+
+        // Hint editing handlers - defined here to be available to includes
+        async editHint(questionId) {
+          const question = this.getQuestionById(questionId);
+          if (!question) return;
+          // Close other modals
+          this.showTranslationModal = false;
+          this.showLanguageModal = false;
+          this.showAddQuestion = false;
+          this.editingValidation = null;
+          
+          // Initialize with empty translations first
+          this.editingHint = {
+            id: questionId,
+            hint: question.hint || '',
+            translations: {}
+          };
+          
+          // Load translations for this hint only when dialog is opened
+          await this.loadHintTranslations(questionId);
+        },
+        async saveHint() {
+          if (!this.editingHint) return;
+          try {
+            const q = this.getQuestionById(this.editingHint.id);
+            const formData = new FormData();
+            formData.append('text', q.text);
+            formData.append('question_type', q.type);
+            formData.append('is_required', q.is_required);
+            formData.append('order', q.order);
+            // Preserve existing validation values to avoid clearing them
+            formData.append('min_length', q.min_length ?? '');
+            formData.append('max_length', q.max_length ?? '');
+            formData.append('min_value', q.min_value ?? '');
+            formData.append('max_value', q.max_value ?? '');
+            formData.append('validation_pattern', q.validation_pattern ?? '');
+            formData.append('validation_message', q.validation_message ?? '');
+            // New hint
+            formData.append('hint', this.editingHint.hint || '');
+            // Preserve evaluator_condition
+            formData.append('evaluator_condition', q.evaluator_condition ?? '');
+            formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+            const resp = await fetch(`/survey/question/${this.editingHint.id}/edit/`, { method: 'POST', body: formData });
+            if (resp.ok) {
+              q.hint = this.editingHint.hint || '';
+              this.editingHint = null;
+            } else {
+              showAlert('Failed to update hint', 'error');
+            }
+          } catch (e) {
+            console.error('Error updating hint:', e);
+            showAlert('Failed to update hint', 'error');
+          }
+        },
+
+        async removeHint() {
+          if (!this.editingHint) return;
+          try {
+            const questionId = this.editingHint.id;
+            const q = this.getQuestionById(questionId);
+
+            // First, delete all hint translations for all languages
+            const defaultLang = '{{ survey.default_language }}';
+            for (const lang of this.availableLanguages) {
+              if (lang.code !== defaultLang) {
+                try {
+                  await fetch(`/survey/api/question/${questionId}/hint-translations/`, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    },
+                    body: JSON.stringify({ language: lang.code, hint_text: '' })
+                  });
+                } catch (langError) {
+                  console.error(`Error deleting hint translation for ${lang.code}:`, langError);
+                }
+              }
+            }
+
+            // Then remove the main hint
+            const formData = new FormData();
+            formData.append('text', q.text);
+            formData.append('question_type', q.type);
+            formData.append('is_required', q.is_required);
+            formData.append('order', q.order);
+            formData.append('min_length', q.min_length ?? '');
+            formData.append('max_length', q.max_length ?? '');
+            formData.append('min_value', q.min_value ?? '');
+            formData.append('max_value', q.max_value ?? '');
+            formData.append('validation_pattern', q.validation_pattern ?? '');
+            formData.append('validation_message', q.validation_message ?? '');
+            formData.append('hint', '');
+            formData.append('evaluator_condition', q.evaluator_condition ?? '');
+            formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+            const resp = await fetch(`/survey/question/${questionId}/edit/`, { method: 'POST', body: formData });
+            if (resp.ok) {
+              q.hint = '';
+              // Clear translations from local cache
+              for (const lang of this.availableLanguages) {
+                delete this.translations[`hint_${questionId}_${lang.code}`];
+              }
+              this.editingHint = null;
+              showAlert('Hint and all translations removed successfully', 'success');
+            } else {
+              showAlert('Failed to remove hint', 'error');
+            }
+          } catch (e) {
+            console.error('Error removing hint:', e);
+            showAlert('Failed to remove hint', 'error');
+          }
+        },
+
+        async loadHintTranslations(questionId) {
+          // Load translations for a specific hint when dialog is opened
+          try {
+            const response = await fetch(`/survey/api/question/${questionId}/hint-translations/`, {
+              method: 'GET',
+              headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+              }
+            });
+            
+            const data = await response.json();
+            if (data.status === 'success') {
+              // Update the editingHint translations
+              if (this.editingHint && this.editingHint.id === questionId) {
+                for (const lang of this.availableLanguages) {
+                  if (lang.code !== '{{ survey.default_language }}') {
+                    this.editingHint.translations[lang.code] = data.translations[lang.code] || '';
+                  }
+                }
+              }
+              
+              // Also update the global translations cache for consistency
+              for (const [lang, text] of Object.entries(data.translations)) {
+                if (text && text.trim()) {
+                  this.translations[`hint_${questionId}_${lang}`] = text;
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Error loading hint translations:', error);
+          }
+        },
+
+        async saveHintTranslation(languageCode) {
+          if (!this.editingHint || !languageCode) return;
+          
+          const translatedText = this.editingHint.translations[languageCode];
+          if (!translatedText || !translatedText.trim()) {
+            showAlert('Please enter a translation before saving', 'warning');
+            return;
+          }
+          
+          try {
+            const response = await fetch(`/survey/api/question/${this.editingHint.id}/hint-translations/`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+              },
+              body: JSON.stringify({
+                language: languageCode,
+                hint_text: translatedText.trim()
+              })
+            });
+            
+            const data = await response.json();
+            if (data.status === 'success') {
+              // Update both global cache and local editingHint
+              this.translations[`hint_${this.editingHint.id}_${languageCode}`] = translatedText.trim();
+              // Also update the editingHint translations to reflect the saved value
+              if (this.editingHint && this.editingHint.translations) {
+                this.editingHint.translations[languageCode] = translatedText.trim();
+              }
+              showAlert(`Hint translation saved for ${this.getLanguageName(languageCode)}`, 'success');
+            } else {
+              showAlert(data.message || 'Failed to save hint translation', 'error');
+            }
+          } catch (error) {
+            console.error('Error saving hint translation:', error);
+            showAlert('Failed to save hint translation', 'error');
+          }
+        },
+
+        // Get all available groups from the survey
+        getAllGroups() {
+          const groups = new Set();
+          for (const page of this.pages) {
+            for (const question of page.questions || []) {
+              if (question.group) {
+                groups.add(question.group);
+              }
+            }
+          }
+          return Array.from(groups).sort();
+        },
+
+        // Group editing handlers
+        editGroup(questionId) {
+          const question = this.getQuestionById(questionId);
+          if (!question) return;
+          // Close other modals
+          this.showTranslationModal = false;
+          this.showLanguageModal = false;
+          this.showAddQuestion = false;
+          this.editingValidation = null;
+          this.editingGroup = {
+            id: questionId,
+            group: question.group || '',
+            availableGroups: this.getAllGroups()
+          };
+        },
+        
+        async updateQuestionGroup(questionId, newGroup) {
+          try {
+            const question = this.getQuestionById(questionId);
+            if (!question) return;
+            
+            const formData = new FormData();
+            formData.append('text', question.text);
+            formData.append('question_type', question.type);
+            formData.append('is_required', question.is_required);
+            formData.append('order', question.order);
+            // Preserve existing validation values
+            formData.append('min_length', question.min_length ?? '');
+            formData.append('max_length', question.max_length ?? '');
+            formData.append('min_value', question.min_value ?? '');
+            formData.append('max_value', question.max_value ?? '');
+            formData.append('validation_pattern', question.validation_pattern ?? '');
+            formData.append('validation_message', question.validation_message ?? '');
+            // Preserve hint
+            formData.append('hint', question.hint ?? '');
+            // Preserve evaluator_condition
+            formData.append('evaluator_condition', question.evaluator_condition ?? '');
+            // New group
+            formData.append('group', newGroup || '');
+            formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+            
+            const response = await fetch(`/survey/question/${questionId}/edit/`, {
+              method: 'POST',
+              body: formData
+            });
+            
+            if (response.ok) {
+              question.group = newGroup || '';
+              this.editingGroup = null;
+            } else {
+              showAlert('Failed to update group', 'error');
+            }
+          } catch (error) {
+            console.error('Error updating group:', error);
+            showAlert('Failed to update group', 'error');
+          }
+        },
+
+        // Translation methods
+        async loadLanguages() {
+          try {
+            const response = await fetch(`/survey/api/{{ survey.pk }}/languages/`);
+            const data = await response.json();
+
+            if (data.status === 'success') {
+              this.availableLanguages = data.current_languages;
+              this.availableNewLanguages = data.available_languages;
+            } else {
+              console.error('Error loading languages:', data.message);
+              // Fallback to default language
+              this.availableLanguages = [{
+                code: '{{ survey.default_language }}',
+                name: 'English',
+                is_default: true
+              }];
+              this.availableNewLanguages = [];
+            }
+          } catch (error) {
+            console.error('Error loading languages:', error);
+            // Fallback to default language
+            this.availableLanguages = [{
+              code: '{{ survey.default_language }}',
+              name: 'English',
+              is_default: true
+            }];
+            this.availableNewLanguages = [];
+          }
+        },
+
+        async loadAllTranslations() {
+          // Load translations only for the current page to reduce API calls
+          try {
+            this.translations = {};
+            const currentPage = this.currentPage;
+            
+            if (currentPage && currentPage.questions) {
+              for (let question of currentPage.questions) {
+                // Load question translations
+                const questionResponse = await fetch(`/survey/api/question/${question.id}/translations/`);
+                const questionData = await questionResponse.json();
+
+                if (questionData.status === 'success') {
+                  for (const [lang, text] of Object.entries(questionData.translations)) {
+                    if (text && text.trim()) {
+                      this.translations[`question_${question.id}_${lang}`] = text;
+                    }
+                  }
+                }
+
+                // Load option translations
+                if (question.options) {
+                  for (let option of question.options) {
+                    const optionResponse = await fetch(`/survey/api/option/${option.id}/translations/`);
+                    const optionData = await optionResponse.json();
+
+                    if (optionData.status === 'success') {
+                      for (const [lang, text] of Object.entries(optionData.translations)) {
+                        if (text && text.trim()) {
+                          this.translations[`option_${option.id}_${lang}`] = text;
+                        }
+                      }
+                    }
+                  }
+                }
+
+                // Load hint translations if hint exists
+                if (question.hint) {
+                  const hintResponse = await fetch(`/survey/api/question/${question.id}/hint-translations/`);
+                  const hintData = await hintResponse.json();
+
+                  if (hintData.status === 'success') {
+                    for (const [lang, text] of Object.entries(hintData.translations)) {
+                      if (text && text.trim()) {
+                        this.translations[`hint_${question.id}_${lang}`] = text;
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Error loading translations:', error);
+          }
+        },
+
+        async loadTranslationsForPage(pageId) {
+          // Load translations for a specific page (used when switching pages)
+          try {
+            const page = this.pages.find(p => p.id === pageId);
+            
+            if (page && page.questions) {
+              for (let question of page.questions) {
+                // Load question translations if not already loaded
+                if (!Object.keys(this.translations).some(key => key.startsWith(`question_${question.id}_`))) {
+                  const questionResponse = await fetch(`/survey/api/question/${question.id}/translations/`);
+                  const questionData = await questionResponse.json();
+
+                  if (questionData.status === 'success') {
+                    for (const [lang, text] of Object.entries(questionData.translations)) {
+                      if (text && text.trim()) {
+                        this.translations[`question_${question.id}_${lang}`] = text;
+                      }
+                    }
+                  }
+                }
+
+                // Load option translations if not already loaded
+                if (question.options) {
+                  for (let option of question.options) {
+                    if (!Object.keys(this.translations).some(key => key.startsWith(`option_${option.id}_`))) {
+                      const optionResponse = await fetch(`/survey/api/option/${option.id}/translations/`);
+                      const optionData = await optionResponse.json();
+
+                      if (optionData.status === 'success') {
+                        for (const [lang, text] of Object.entries(optionData.translations)) {
+                          if (text && text.trim()) {
+                            this.translations[`option_${option.id}_${lang}`] = text;
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+
+                // Load hint translations if not already loaded and hint exists
+                if (question.hint && !Object.keys(this.translations).some(key => key.startsWith(`hint_${question.id}_`))) {
+                  const hintResponse = await fetch(`/survey/api/question/${question.id}/hint-translations/`);
+                  const hintData = await hintResponse.json();
+
+                  if (hintData.status === 'success') {
+                    for (const [lang, text] of Object.entries(hintData.translations)) {
+                      if (text && text.trim()) {
+                        this.translations[`hint_${question.id}_${lang}`] = text;
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Error loading translations for page:', error);
+          }
+        },
+
+        getLanguageName(code) {
+          const lang = this.availableLanguages.find(l => l.code === code) ||
+            this.availableNewLanguages.find(l => l.code === code);
+          return lang ? lang.name : code;
+        },
+
+        hasMultipleLanguages() {
+          return this.availableLanguages.length >= 2;
+        },
+
+        getTranslationStatus(id, type) {
+          // Check which languages have translations for this item
+          const translatedLanguages = [];
+          for (const lang of this.availableLanguages) {
+            if (lang.code !== '{{ survey.default_language }}') {
+              const translationKey = `${type}_${id}_${lang.code}`;
+              if (this.translations[translationKey]) {
+                translatedLanguages.push(lang);
+              }
+            }
+          }
+          return translatedLanguages;
+        },
+
+        getDisplayText(type, id, fallback) {
+          // Return translated text if a non-default language is selected
+          const defaultLang = '{{ survey.default_language }}';
+          if (this.selectedDisplayLanguage && this.selectedDisplayLanguage !== defaultLang) {
+            const key = `${type}_${id}_${this.selectedDisplayLanguage}`;
+            if (this.translations[key]) {
+              return this.translations[key];
+            }
+          }
+          return fallback;
+        },
+
+        async editConsentTranslation() {
+          this.editingValidation = null;
+          this.showLanguageModal = false;
+          this.showAddQuestion = false;
+
+          const originalText = '{{ survey.consent_text|escapejs }}' || '';
+
+          // Load existing translations for all languages
+          const bulkTranslations = {};
+          try {
+            const response = await fetch('/survey/api/{{ survey.pk }}/consent-translations/', {
+              method: 'GET',
+              headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+              }
+            });
+            
+            const data = await response.json();
+            if (data.status === 'success') {
+              // Initialize translations for all available languages
+              for (const lang of this.availableLanguages) {
+                if (lang.code !== '{{ survey.default_language }}') {
+                  bulkTranslations[lang.code] = data.translations[lang.code] || '';
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Error loading consent translations:', error);
+          }
+
+          this.translationModal = {
+            type: 'consent',
+            id: '{{ survey.pk }}',
+            originalText: originalText,
+            translatedText: '',
+            bulkTranslations: bulkTranslations
+          };
+          this.showTranslationModal = true;
+        },
+
+        async editHintTranslation(questionId) {
+          this.editingValidation = null;
+          this.showLanguageModal = false;
+          this.showAddQuestion = false;
+
+          const question = this.getQuestionById(questionId);
+          if (!question) return;
+
+          const originalText = question.hint || '';
+
+          // Load existing translations for all languages
+          const bulkTranslations = {};
+          try {
+            const response = await fetch(`/survey/api/question/${questionId}/hint-translations/`, {
+              method: 'GET',
+              headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+              }
+            });
+            
+            const data = await response.json();
+            if (data.status === 'success') {
+              // Initialize translations for all available languages
+              for (const lang of this.availableLanguages) {
+                if (lang.code !== '{{ survey.default_language }}') {
+                  bulkTranslations[lang.code] = data.translations[lang.code] || '';
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Error loading hint translations:', error);
+          }
+
+          this.translationModal = {
+            type: 'hint',
+            id: questionId,
+            originalText: originalText,
+            translatedText: '',
+            bulkTranslations: bulkTranslations
+          };
+          this.showTranslationModal = true;
+        },
+
+        async editTranslation(id, type) {
+          this.editingValidation = null;
+          this.showLanguageModal = false;
+          this.showAddQuestion = false;
+
+          const isQuestion = type === 'question';
+          let originalText;
+
+          if (isQuestion) {
+            const question = this.getQuestionById(id);
+            originalText = question ? question.text : '';
+          } else {
+            // Find option across all questions
+            for (let page of this.pages) {
+              if (page.questions) {
+                for (let question of page.questions) {
+                  if (question.options) {
+                    const option = question.options.find(o => o.id === id);
+                    if (option) {
+                      originalText = option.text;
+                      break;
+                    }
+                  }
+                }
+              }
+              if (originalText) break;
+            }
+          }
+
+          // Load existing translations for all languages
+          const bulkTranslations = {};
+          try {
+            const endpoint = isQuestion ? 
+              `/survey/api/question/${id}/translations/` : 
+              `/survey/api/option/${id}/translations/`;
+            
+            const response = await fetch(endpoint, {
+              method: 'GET',
+              headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+              }
+            });
+            
+            const data = await response.json();
+            if (data.status === 'success') {
+              // Initialize translations for all available languages
+              for (const lang of this.availableLanguages) {
+                if (lang.code !== '{{ survey.default_language }}') {
+                  bulkTranslations[lang.code] = data.translations[lang.code] || '';
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Error loading translations:', error);
+          }
+
+          this.translationModal = {
+            type: type,
+            id: id,
+            originalText: originalText,
+            translatedText: this.translations[`${type}_${id}`] || '',
+            bulkTranslations: bulkTranslations
+          };
+          console.log('Setting translationModal:', this.translationModal);
+          console.log('Setting showTranslationModal to true');
+          this.showTranslationModal = true;
+          console.log('Final showTranslationModal value:', this.showTranslationModal);
+          console.log('=== editTranslation END ===');
+        },
+        async editPageTranslation(pageId) {
+          this.editingValidation = null;
+          this.showLanguageModal = false;
+          this.showAddQuestion = false;
+          
+          const page = this.pages.find(p => p.id === pageId);
+          if (!page) return;
+          
+          // Initialize translations for all available languages
+          const bulkTranslations = {};
+          for (const lang of this.availableLanguages) {
+            if (lang.code !== '{{ survey.default_language }}') {
+              bulkTranslations[lang.code] = {
+                title: '',
+                description: ''
+              };
+            }
+          }
+          
+          // Load existing translations
+          try {
+            const response = await fetch(`/survey/api/page/${pageId}/translations/`, {
+              method: 'GET',
+              headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+              }
+            });
+            
+            const data = await response.json();
+            if (data.status === 'success') {
+              // Update with existing translations
+              for (const lang of this.availableLanguages) {
+                if (lang.code !== '{{ survey.default_language }}' && data.translations[lang.code]) {
+                  bulkTranslations[lang.code] = {
+                    title: data.translations[lang.code]?.title || '',
+                    description: data.translations[lang.code]?.description || ''
+                  };
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Error loading page translations:', error);
+          }
+          
+          this.translationModal = {
+            type: 'page',
+            id: pageId,
+            originalTitle: page.title || '',
+            originalDescription: page.description || '',
+            bulkTranslations: bulkTranslations
+          };
+          this.showTranslationModal = true;
+        },
+
+        async autoTranslateAll() {
+          this.isLoading = true;
+          
+          try {
+            // Get all target languages (excluding the default language)
+            const targetLanguages = this.availableLanguages
+              .filter(l => l.code !== '{{ survey.default_language }}')
+              .map(l => l.code);
+            
+            if (targetLanguages.length === 0) {
+              showAlert('No target languages available for translation.', 'warning');
+              return;
+            }
+            
+            const response = await fetch('/survey/api/auto-translate/', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+              },
+              body: JSON.stringify({
+                text: this.translationModal.originalText || this.translationModal.originalTitle,
+                target_languages: targetLanguages,
+                source_language: '{{ survey.default_language }}',
+                type: this.translationModal.type,
+                id: this.translationModal.id
+              })
+            });
+            
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+              // Update the bulk translations with auto-translated text
+              for (const [lang, translatedText] of Object.entries(data.translations)) {
+                if (this.translationModal.type === 'page') {
+                  // For pages, create object structure if it doesn't exist
+                  if (!this.translationModal.bulkTranslations[lang]) {
+                    this.translationModal.bulkTranslations[lang] = {};
+                  }
+                  this.translationModal.bulkTranslations[lang].title = translatedText;
+                } else {
+                  this.translationModal.bulkTranslations[lang] = translatedText;
+                }
+              }
+              
+              // Show success message
+              const translatedCount = Object.keys(data.translations).length;
+              if (translatedCount > 0) {
+                showAlert(`Successfully auto-translated to ${translatedCount} languages. Review and save the translations.`, 'success');
+              } else {
+                showAlert('No translations were generated. Please try again.', 'warning');
+              }
+            } else {
+              showAlert(data.message || 'Failed to auto-translate. Please try again.', 'error');
+            }
+          } catch (error) {
+            console.error('Auto-translation error:', error);
+            showAlert('An error occurred during auto-translation. Please check your internet connection and try again.', 'error');
+          } finally {
+            this.isLoading = false;
+          }
+        },
+
+        async autoTranslateSurvey() {
+          if (!this.bulkTranslateLanguage) {
+            showAlert('Please select a target language.', 'warning');
+            return;
+          }
+
+          this.isLoading = true;
+          
+          // Calculate total items for progress display
+          let totalItems = 0;
+          for (const page of this.pages) {
+            if (page.questions) {
+              totalItems += page.questions.length;
+              for (const question of page.questions) {
+                if (question.options) {
+                  totalItems += question.options.length;
+                }
+              }
+            }
+          }
+
+          // Reset progress
+          this.bulkTranslateProgress = {
+            total: totalItems,
+            completed: 0,
+            currentItem: 'Starting translation...'
+          };
+
+          try {
+            const response = await fetch('/survey/api/auto-translate-survey/', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+              },
+              body: JSON.stringify({
+                survey_id: '{{ survey.pk }}',
+                target_language: this.bulkTranslateLanguage,
+                source_language: '{{ survey.default_language }}'
+              })
+            });
+            
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+              showAlert(`Successfully translated ${data.translated_count} items to ${this.getLanguageName(this.bulkTranslateLanguage)}.`, 'success');
+              this.showBulkTranslateModal = false;
+              this.bulkTranslateLanguage = '';
+              this.bulkTranslateProgress = { total: 0, completed: 0, currentItem: '' };
+              
+              // Reload translations for current page to reflect changes
+              if (this.currentPageId) {
+                await this.loadTranslationsForPage(this.currentPageId);
+              }
+            } else if (data.status === 'in_progress') {
+              // Show the progress during translation (though this won't update in real-time)
+              this.bulkTranslateProgress = {
+                total: data.total_items,
+                completed: data.completed_items,
+                currentItem: data.current_item
+              };
+              showAlert(`Translation in progress: ${data.completed_items}/${data.total_items} items completed`, 'info');
+            } else {
+              showAlert(data.message || 'Failed to translate survey. Please try again.', 'error');
+            }
+          } catch (error) {
+            console.error('Survey translation error:', error);
+            showAlert('An error occurred during survey translation. Please check your internet connection and try again.', 'error');
+          } finally {
+            this.isLoading = false;
+          }
+        },
+
+        async saveBulkTranslations() {
+          this.isLoading = true;
+          let savedCount = 0;
+          let errorCount = 0;
+
+          try {
+            let endpoint;
+            if (this.translationModal.type === 'question') {
+              endpoint = `/survey/api/question/${this.translationModal.id}/translations/`;
+            } else if (this.translationModal.type === 'option') {
+              endpoint = `/survey/api/option/${this.translationModal.id}/translations/`;
+            } else if (this.translationModal.type === 'consent') {
+              endpoint = `/survey/api/${this.translationModal.id}/consent-translations/`;
+            } else if (this.translationModal.type === 'hint') {
+              endpoint = `/survey/api/question/${this.translationModal.id}/hint-translations/`;
+            } else if (this.translationModal.type === 'page') {
+              endpoint = `/survey/api/page/${this.translationModal.id}/translations/`;
+            } else {
+              showAlert('Invalid translation type', 'error');
+              this.isLoading = false;
+              return;
+            }
+
+            // Save each language translation
+            for (const [language, translationData] of Object.entries(this.translationModal.bulkTranslations)) {
+              if (translationData) {
+                try {
+                  let requestBody = {
+                    language: language
+                  };
+                  
+                  // Handle different translation types
+                  if (this.translationModal.type === 'hint') {
+                    if (translationData && translationData.trim()) {
+                      requestBody.hint_text = translationData.trim();
+                    }
+                  } else if (this.translationModal.type === 'page') {
+                    if (translationData.title && translationData.title.trim()) {
+                      requestBody.title = translationData.title.trim();
+                    }
+                    if (translationData.description && translationData.description.trim()) {
+                      requestBody.description = translationData.description.trim();
+                    }
+                  } else {
+                    if (translationData && translationData.trim()) {
+                      requestBody.text = translationData.trim();
+                    }
+                  }
+                  
+                  // Don't send empty requests
+                  if (Object.keys(requestBody).length <= 1) {
+                    continue;
+                  }
+                  
+                  const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    },
+                    body: JSON.stringify(requestBody)
+                  });
+
+                  const data = await response.json();
+                  if (data.status === 'success') {
+                    // Update local translations
+                    if (this.translationModal.type === 'consent') {
+                      this.translations[`consent_${this.translationModal.id}_${language}`] = translationData.trim();
+                    } else if (this.translationModal.type === 'page') {
+                      // For pages, we need to update both title and description
+                      if (translationData.title) {
+                        this.translations[`page_title_${this.translationModal.id}_${language}`] = translationData.title.trim();
+                      }
+                      if (translationData.description) {
+                        this.translations[`page_description_${this.translationModal.id}_${language}`] = translationData.description.trim();
+                      }
+                    } else {
+                      this.translations[`${this.translationModal.type}_${this.translationModal.id}_${language}`] = translationData.trim();
+                    }
+                    savedCount++;
+                  } else {
+                    errorCount++;
+                  }
+                } catch (error) {
+                  console.error(`Error saving ${language} translation:`, error);
+                  errorCount++;
+                }
+              }
+            }
+
+            if (savedCount > 0) {
+              // Reload translations for current page to reflect changes
+              if (this.currentPageId) {
+                await this.loadTranslationsForPage(this.currentPageId);
+              }
+              this.showTranslationModal = false;
+              
+              if (errorCount > 0) {
+                showAlert(`Saved ${savedCount} translations with ${errorCount} errors.`, errorCount > 0 ? 'warning' : 'success');
+              }
+            } else if (errorCount > 0) {
+              showAlert('Failed to save translations. Please try again.', 'error');
+            } else {
+              showAlert('No translations to save. Please enter some text.', 'info');
+            }
+          } catch (error) {
+            console.error('Error saving bulk translations:', error);
+            showAlert('Failed to save translations', 'error');
+          } finally {
+            this.isLoading = false;
+          }
+        },
+
+        async addLanguage() {
+          if (!this.newLanguage) return;
+
+          this.isLoading = true;
+
+          try {
+            const response = await fetch(`/survey/api/{{ survey.pk }}/languages/`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+              },
+              body: JSON.stringify({
+                language: this.newLanguage
+              })
+            });
+
+            const data = await response.json();
+
+            if (data.status === 'success') {
+              // Add to available languages
+              this.availableLanguages.push(data.language);
+              
+              // Remove from available new languages
+              this.availableNewLanguages = this.availableNewLanguages.filter(l => l.code !== this.newLanguage);
+              
+              // Reset form and close modal
+              this.newLanguage = '';
+              this.showLanguageModal = false;
+              
+              // Reload translations for current page to include new language
+              if (this.currentPageId) {
+                await this.loadTranslationsForPage(this.currentPageId);
+              }
+            } else {
+              showAlert(data.message || 'Failed to add language', 'error');
+            }
+          } catch (error) {
+            console.error('Error adding language:', error);
+            showAlert('Failed to add language', 'error');
+          } finally {
+            this.isLoading = false;
+          }
+        },
+
+        async removeLanguage(code) {
+          if (code === '{{ survey.default_language }}') return;
+
+          if (!confirm('Are you sure you want to remove this language? All translations will be deleted.')) {
+            return;
+          }
+
+          this.isLoading = true;
+
+          try {
+            const response = await fetch(`/survey/api/{{ survey.pk }}/languages/`, {
+              method: 'DELETE',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+              },
+              body: JSON.stringify({
+                language: code
+              })
+            });
+
+            const data = await response.json();
+
+            if (data.status === 'success') {
+              // Remove from available languages
+              const lang = this.availableLanguages.find(l => l.code === code);
+              if (lang) {
+                this.availableLanguages = this.availableLanguages.filter(l => l.code !== code);
+                // Add back to available new languages
+                if (this.availableNewLanguages) {
+                  this.availableNewLanguages.push({
+                    code: lang.code,
+                    name: lang.name,
+                    is_default: false
+                  });
+                }
+              }
+
+              // Reload translations for current page after language removal
+              if (this.currentPageId) {
+                await this.loadTranslationsForPage(this.currentPageId);
+              }
+            } else {
+              showAlert(data.message || 'Failed to remove language', 'error');
+            }
+          } catch (error) {
+            console.error('Error removing language:', error);
+            showAlert('Failed to remove language', 'error');
+          } finally {
+            this.isLoading = false;
+          }
+        },
+
+        getAllQuestionIndex(pageId, questionIndex) {
+          let totalIndex = 0;
+          for (let page of this.pages) {
+            if (page.id === pageId) {
+              return totalIndex + questionIndex;
+            }
+            totalIndex += page.questions?.length || 0;
+          }
+          return totalIndex;
+        },
+
+        addNewQuestion() {
+          // Close other modals
+          this.editingValidation = null;
+          this.showTranslationModal = false;
+          this.showLanguageModal = false;
+          
+          this.showAddQuestion = true;
+          this.newQuestionText = '';
+          this.newQuestionType = 'text';
+          this.newQuestionHint = '';
+          this.newQuestionMinLength = null;
+          this.newQuestionMaxLength = null;
+          this.newQuestionMinValue = null;
+          this.newQuestionMaxValue = null;
+          this.newQuestionPattern = '';
+          this.newQuestionMessage = '';
+          this.showValidationRules = false;
+        },
+
+        editKey(questionId) {
+          const question = this.getQuestionById(questionId);
+          if (!question) return;
+          
+          // Close other modals
+          this.showTranslationModal = false;
+          this.showLanguageModal = false;
+          this.showAddQuestion = false;
+          this.editingValidation = null;
+          
+          this.editingKey = {
+            id: questionId,
+            key: question.key || ''
+          };
+        },
+
+        editValidation(questionId) {
+          console.log('=== editValidation CALLED ===');
+          console.log('questionId:', questionId);
+          console.log('Before - showTranslationModal:', this.showTranslationModal);
+          console.log('Before - editingValidation:', this.editingValidation);
+          console.log('Before - showLanguageModal:', this.showLanguageModal);
+          console.log('Before - showAddQuestion:', this.showAddQuestion);
+          
+          const question = this.getQuestionById(questionId);
+          console.log('Found question:', question);
+          if (!question) {
+            console.log('No question found, returning');
+            return;
+          }
+          
+          // Close other modals
+          console.log('Closing other modals...');
+          this.showTranslationModal = false;
+          this.showLanguageModal = false;
+          this.showAddQuestion = false;
+          console.log('After closing - showTranslationModal:', this.showTranslationModal);
+          
+          this.editingValidation = {
+            id: questionId,
+            min_length: question.min_length || null,
+            max_length: question.max_length || null,
+            min_value: question.min_value || null,
+            max_value: question.max_value || null,
+            validation_pattern: question.validation_pattern || '',
+            validation_message: question.validation_message || ''
+          };
+          
+          console.log('After - editingValidation:', this.editingValidation);
+          console.log('=== editValidation END ===');
+        },
+
+        async saveValidation() {
+          if (!this.editingValidation) return;
+          
+          try {
+            const formData = new FormData();
+            const question = this.getQuestionById(this.editingValidation.id);
+            
+            formData.append('text', question.text);
+            formData.append('question_type', question.type);
+            formData.append('is_required', question.is_required);
+            formData.append('order', question.order);
+            formData.append('min_length', this.editingValidation.min_length || '');
+            formData.append('max_length', this.editingValidation.max_length || '');
+            formData.append('min_value', this.editingValidation.min_value || '');
+            formData.append('max_value', this.editingValidation.max_value || '');
+            formData.append('validation_pattern', this.editingValidation.validation_pattern);
+            formData.append('validation_message', this.editingValidation.validation_message);
+            // Preserve hint
+            formData.append('hint', question.hint || '');
+            // Preserve evaluator_condition
+            formData.append('evaluator_condition', question.evaluator_condition || '');
+            formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+
+            const response = await fetch(`/survey/question/${this.editingValidation.id}/edit/`, {
+              method: 'POST',
+              body: formData
+            });
+
+            if (response.ok) {
+              // Update local question data
+              Object.assign(question, {
+                min_length: this.editingValidation.min_length,
+                max_length: this.editingValidation.max_length,
+                min_value: this.editingValidation.min_value,
+                max_value: this.editingValidation.max_value,
+                validation_pattern: this.editingValidation.validation_pattern,
+                validation_message: this.editingValidation.validation_message
+              });
+              
+              this.editingValidation = null;
+            } else {
+              showAlert('Failed to update validation rules', 'error');
+            }
+          } catch (error) {
+            console.error('Error updating validation:', error);
+            showAlert('Failed to update validation rules', 'error');
+          }
+        },
+
+        async saveKey() {
+          if (!this.editingKey) return;
+          
+          try {
+            const response = await fetch(`/survey/question/${this.editingKey.id}/edit/`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+              },
+              body: new URLSearchParams({
+                'key': this.editingKey.key,
+                'text': this.getQuestionById(this.editingKey.id).text,
+                'question_type': this.getQuestionById(this.editingKey.id).type,
+                'is_required': this.getQuestionById(this.editingKey.id).is_required,
+                'order': this.getQuestionById(this.editingKey.id).order,
+                'hint': (this.getQuestionById(this.editingKey.id).hint || ''),
+                'evaluator_condition': (this.getQuestionById(this.editingKey.id).evaluator_condition || '')
+              })
+            });
+
+            if (response.ok) {
+              // Update local state
+              const question = this.getQuestionById(this.editingKey.id);
+              if (question) {
+                question.key = this.editingKey.key;
+              }
+              this.editingKey = null;
+            } else {
+              showAlert('Failed to update question key', 'error');
+            }
+          } catch (error) {
+            console.error('Error updating key:', error);
+            showAlert('Failed to update question key', 'error');
+          }
+        },
+
+        async addNewPage() {
+          // Close other modals
+          this.editingValidation = null;
+          this.showTranslationModal = false;
+          this.showLanguageModal = false;
+          this.showAddQuestion = false;
+          
+          this.isLoading = true;
+
+          try {
+            const response = await fetch(`/survey/api/{{ survey.pk }}/quick-add-page/`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+              },
+              body: JSON.stringify({
+                title: `Page ${this.pages.length + 1}`
+              })
+            });
+
+            const data = await response.json();
+
+            if (data.status === 'success') {
+              data.page.questions = [];
+              data.page.questions_count = 0;
+              this.pages.push(data.page);
+              this.currentPageId = data.page.id; // Switch to the new page
+            } else {
+              showAlert(data.message || 'Failed to create page', 'error');
+            }
+          } catch (error) {
+            console.error('Error creating page:', error);
+            showAlert('Failed to create page', 'error');
+          } finally {
+            this.isLoading = false;
+          }
+        },
+
+        async addQuestion() {
+          if (!this.newQuestionText.trim() || this.isLoading) return;
+
+          this.isLoading = true;
+
+          // Use current page or create one if none exists
+          let targetPageId = this.currentPageId;
+
+          if (!targetPageId) {
+            // Create a default page first
+            try {
+              const pageResponse = await fetch(`/survey/api/{{ survey.pk }}/quick-add-page/`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify({
+                  title: 'Page 1'
+                })
+              });
+
+              const pageData = await pageResponse.json();
+
+              if (pageData.status === 'success') {
+                pageData.page.questions = [];
+                pageData.page.questions_count = 0;
+                this.pages.push(pageData.page);
+                targetPageId = pageData.page.id;
+                this.currentPageId = pageData.page.id;
+              } else {
+                showAlert(pageData.message || 'Failed to create page', 'error');
+                this.isLoading = false;
+                return;
+              }
+            } catch (error) {
+              console.error('Error creating page:', error);
+              showAlert('Failed to create page', 'error');
+              this.isLoading = false;
+              return;
+            }
+          }
+
+          try {
+            const response = await fetch(`/survey/api/page/${targetPageId}/quick-add-question/`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+              },
+              body: JSON.stringify({
+                text: this.newQuestionText,
+                type: this.newQuestionType,
+                hint: this.newQuestionHint,
+                min_length: this.newQuestionMinLength,
+                max_length: this.newQuestionMaxLength,
+                min_value: this.newQuestionMinValue,
+                max_value: this.newQuestionMaxValue,
+                validation_pattern: this.newQuestionPattern,
+                validation_message: this.newQuestionMessage
+              })
+            });
+
+            const data = await response.json();
+
+            if (data.status === 'success') {
+              const pageIndex = this.pages.findIndex(p => p.id === targetPageId);
+              if (pageIndex !== -1) {
+                if (!this.pages[pageIndex].questions) {
+                  this.pages[pageIndex].questions = [];
+                }
+                this.pages[pageIndex].questions.push(data.question);
+                this.pages[pageIndex].questions_count++;
+
+                this.showAddQuestion = false;
+                this.newQuestionText = '';
+                this.newQuestionType = 'text';
+                this.newQuestionHint = '';
+                this.newQuestionMinLength = null;
+                this.newQuestionMaxLength = null;
+                this.newQuestionMinValue = null;
+                this.newQuestionMaxValue = null;
+                this.newQuestionPattern = '';
+                this.newQuestionMessage = '';
+                this.showValidationRules = false;
+              }
+            } else {
+              showAlert(data.message || 'Failed to add question', 'error');
+            }
+          } catch (error) {
+            console.error('Error adding question:', error);
+            showAlert('Failed to add question', 'error');
+          } finally {
+            this.isLoading = false;
+          }
+        },
+
+        async updateQuestionText(questionId, newText) {
+          if (!newText.trim()) return;
+
+          try {
+            const response = await fetch(`/survey/question/${questionId}/edit/`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+              },
+              body: new URLSearchParams({
+                'text': newText,
+                'question_type': this.getQuestionById(questionId).type,
+                'is_required': this.getQuestionById(questionId).is_required,
+                'order': this.getQuestionById(questionId).order,
+                'hint': (this.getQuestionById(questionId).hint || ''),
+                'evaluator_condition': (this.getQuestionById(questionId).evaluator_condition || '')
+              })
+            });
+
+            if (response.ok) {
+              // Update local state
+              const question = this.getQuestionById(questionId);
+              if (question) {
+                question.text = newText;
+              }
+            } else {
+              showAlert('Failed to update question', 'error');
+            }
+          } catch (error) {
+            console.error('Error updating question:', error);
+            showAlert('Failed to update question', 'error');
+          }
+        },
+
+        closeSubQuestionOptionsModal() {
+          // Restore the original subQuestionsModal before closing
+          if (this.subQuestionOptionsModal && this.subQuestionOptionsModal.originalSubQuestionsModal) {
+            this.subQuestionsModal = this.subQuestionOptionsModal.originalSubQuestionsModal;
+            this.showSubQuestionsModal = true;
+          }
+          
+          // Close the options modal
+          this.showSubQuestionOptionsModal = false;
+          this.subQuestionOptionsModal = null;
+        },
+
+        async updateQuestionType(questionId, newType) {
+          try {
+            const question = this.getQuestionById(questionId);
+            if (!question) return;
+
+            // Show loading state
+            this.isLoading = true;
+
+            const formData = new FormData();
+            formData.append('text', question.text);
+            formData.append('question_type', newType);
+            formData.append('is_required', question.is_required);
+            formData.append('order', question.order);
+            formData.append('hint', question.hint || '');
+            formData.append('evaluator_condition', question.evaluator_condition || '');
+            formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+
+            const response = await fetch(`/survey/question/${questionId}/edit/`, {
+              method: 'POST',
+              body: formData
+            });
+
+            if (response.ok) {
+              // Update local state
+              question.type = newType;
+              question.requires_options = ['radio', 'checkbox', 'dropdown'].includes(newType);
+
+              // Update type display based on new type
+              const typeDisplayMap = {
+                'text': 'Text',
+                'textarea': 'Textarea',
+                'radio': 'Radio Button',
+                'checkbox': 'Checkbox',
+                'dropdown': 'Dropdown',
+                'number': 'Number',
+                'email': 'Email',
+                'date': 'Date',
+                'time': 'Time',
+                'datetime': 'Date & Time',
+                'note': 'Note/Information',
+                'consent': 'Consent Page'
+              };
+              question.type_display = typeDisplayMap[newType] || newType;
+
+              // Clear options if type no longer requires them
+              if (!question.requires_options) {
+                question.options = [];
+              }
+
+              // Force Alpine.js to re-render
+              this.$nextTick(() => {
+                // Update complete
+              });
+            } else {
+              showAlert('Failed to update question type', 'error');
+              // Revert the select box
+              setTimeout(() => {
+                const selectElement = document.querySelector(`select[x-data*="question.id === ${questionId}"]`);
+                if (selectElement) {
+                  selectElement.value = question.type;
+                }
+              }, 100);
+            }
+          } catch (error) {
+            console.error('Error updating question type:', error);
+            showAlert('Failed to update question type', 'error');
+          } finally {
+            this.isLoading = false;
+          }
+        },
+
+        async toggleRequired(questionId, isRequired) {
+          try {
+            const question = this.getQuestionById(questionId);
+            if (!question) return;
+
+            const response = await fetch(`/survey/question/${questionId}/edit/`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+              },
+              body: new URLSearchParams({
+                'text': question.text,
+                'question_type': question.type,
+                'is_required': isRequired,
+                'order': question.order,
+                'hint': (question.hint || ''),
+                'evaluator_condition': (question.evaluator_condition || '')
+              })
+            });
+
+            if (response.ok) {
+              question.is_required = isRequired;
+            } else {
+              showAlert('Failed to update question', 'error');
+            }
+          } catch (error) {
+            console.error('Error updating question:', error);
+            showAlert('Failed to update question', 'error');
+          }
+        },
+
+        editEvaluator(questionId) {
+          const question = this.getQuestionById(questionId);
+          if (!question) return;
+          this.showTranslationModal = false;
+          this.showLanguageModal = false;
+          this.showAddQuestion = false;
+          this.editingValidation = null;
+          this.editingEvaluator = {
+            id: questionId,
+            evaluator_condition: question.evaluator_condition || ''
+          };
+          this.showEvaluatorModal = true;
+        },
+        async saveEvaluatorCondition() {
+          if (!this.editingEvaluator) return;
+          try {
+            const q = this.getQuestionById(this.editingEvaluator.id);
+            const formData = new FormData();
+            formData.append('text', q.text);
+            formData.append('question_type', q.type);
+            formData.append('is_required', q.is_required);
+            formData.append('order', q.order);
+            formData.append('min_length', q.min_length ?? '');
+            formData.append('max_length', q.max_length ?? '');
+            formData.append('min_value', q.min_value ?? '');
+            formData.append('max_value', q.max_value ?? '');
+            formData.append('validation_pattern', q.validation_pattern ?? '');
+            formData.append('validation_message', q.validation_message ?? '');
+            formData.append('hint', q.hint || '');
+            formData.append('evaluator_condition', this.editingEvaluator.evaluator_condition || '');
+            formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+            const resp = await fetch(`/survey/question/${this.editingEvaluator.id}/edit/`, { method: 'POST', body: formData });
+            if (resp.ok) {
+              q.evaluator_condition = this.editingEvaluator.evaluator_condition || '';
+              this.editingEvaluator = null;
+              this.showEvaluatorModal = false;
+            } else {
+              showAlert('Failed to update evaluator condition', 'error');
+            }
+          } catch (e) {
+            console.error('Error updating evaluator condition:', e);
+            showAlert('Failed to update evaluator condition', 'error');
+          }
+        },
+
+        confirmDeleteQuestion(questionId) {
+          this.deleteQuestionId = questionId;
+          this.showDeleteConfirm = true;
+        },
+
+        async deleteQuestion(questionId) {
+          this.showDeleteConfirm = false;
+          this.deleteQuestionId = null;
+
+          try {
+            const response = await fetch(`/survey/question/${questionId}/delete/`, {
+              method: 'POST',
+              headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+              }
+            });
+
+            if (response.ok) {
+              // Remove from local state
+              for (let page of this.pages) {
+                if (page.questions) {
+                  const questionIndex = page.questions.findIndex(q => q.id === questionId);
+                  if (questionIndex !== -1) {
+                    page.questions.splice(questionIndex, 1);
+                    page.questions_count--;
+                    break;
+                  }
+                }
+              }
+            } else {
+              showAlert('Failed to delete question', 'error');
+            }
+          } catch (error) {
+            console.error('Error deleting question:', error);
+            showAlert('Failed to delete question', 'error');
+          }
+        },
+
+        async addQuestionOption(questionId, optionText, optionValue = '') {
+          if (!optionText.trim()) return;
+
+          try {
+            const response = await fetch(`/survey/api/question/${questionId}/add-option/`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+              },
+              body: JSON.stringify({
+                text: optionText,
+                value: optionValue || ''
+              })
+            });
+
+            const data = await response.json();
+
+            if (data.status === 'success') {
+              // Find the question and add the option
+              const question = this.getQuestionById(questionId);
+              if (question) {
+                if (!question.options) {
+                  question.options = [];
+                }
+                question.options.push(data.option);
+            }
+            } else {
+              showAlert(data.message || 'Failed to add option', 'error');
+            }
+          } catch (error) {
+            console.error('Error adding option:', error);
+            showAlert('Failed to add option', 'error');
+          }
+        },
+
+        async updateQuestionOption(optionId, newText, newValue = '') {
+          if (!newText.trim()) return;
+
+          try {
+            const response = await fetch(`/survey/api/option/${optionId}/update/`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+              },
+              body: JSON.stringify({
+                text: newText,
+                value: newValue || ''
+              })
+            });
+
+            const data = await response.json();
+
+            if (data.status === 'success') {
+              // Find and update the option
+              for (let page of this.pages) {
+                if (page.questions) {
+                  for (let question of page.questions) {
+                    if (question.options) {
+                      const option = question.options.find(o => o.id === optionId);
+                      if (option) {
+                        option.text = data.option.text;
+                        option.value = data.option.value || '';
+                        return;
+                      }
+                    }
+                  }
+                }
+              }
+            } else {
+              showAlert(data.message || 'Failed to update option', 'error');
+            }
+          } catch (error) {
+            console.error('Error updating option:', error);
+            showAlert('Failed to update option', 'error');
+          }
+        },
+
+        async updateFilterOptionsQuestion(questionId, filterQuestionId) {
+          try {
+            const body = { filter_question_id: filterQuestionId || null };
+            const response = await fetch(`/survey/api/question/${questionId}/set-filter-question/`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+              },
+              body: JSON.stringify(body)
+            });
+            const data = await response.json();
+            if (data.status === 'success') {
+              const q = this.getQuestionById(questionId);
+              if (q) {
+                q.filter_options_question_id = data.filter_options_question_id || null;
+              }
+            } else {
+              showAlert(data.message || 'Failed to update filter question', 'error');
+            }
+          } catch (e) {
+            console.error('Error updating filter question:', e);
+            showAlert('Failed to update filter question', 'error');
+          }
+        },
+
+        async deleteQuestionOption(optionId, questionId) {
+          if (!confirm('Are you sure you want to delete this option?')) return;
+
+          try {
+            const response = await fetch(`/survey/api/option/${optionId}/delete/`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+              }
+            });
+
+            const data = await response.json();
+
+            if (data.status === 'success') {
+              // Find and remove the option
+              const question = this.getQuestionById(questionId);
+              if (question && question.options) {
+                question.options = question.options.filter(o => o.id !== optionId);
+              }
+            } else {
+              showAlert(data.message || 'Failed to delete option', 'error');
+            }
+          } catch (error) {
+            console.error('Error deleting option:', error);
+            showAlert('Failed to delete option', 'error');
+          }
+        },
+
+        async applyQuickOptions(questionId, optionTexts) {
+          const question = this.getQuestionById(questionId);
+          if (!question) {
+            showAlert('Question not found', 'error');
+            return;
+          }
+
+          // Clear existing options first
+          if (question.options && question.options.length > 0) {
+            if (!confirm('This will replace all existing options. Continue?')) {
+              return;
+            }
+            
+            // Delete all existing options
+            for (const option of question.options) {
+              await this.deleteQuestionOption(option.id, questionId);
+            }
+          }
+
+          // Add new options
+          for (const optionText of optionTexts) {
+            await this.addQuestionOption(questionId, optionText);
+          }
+
+          showAlert(`Added ${optionTexts.length} options successfully`, 'success');
+        },
+
+        getQuestionById(questionId) {
+          console.log('Searching for question ID:', questionId, 'in pages:', this.pages);
+          for (let page of this.pages) {
+            if (page.questions) {
+              console.log('Page questions:', page.questions);
+              const question = page.questions.find(q => q.id == questionId); // Use == for type coercion
+              if (question) {
+                console.log('Found question:', question);
+                return question;
+              }
+            }
+          }
+          console.log('Question not found');
+          return null;
+        },
+
+        getOptionById(optionId) {
+          for (let page of this.pages) {
+            if (page.questions) {
+              for (let question of page.questions) {
+                if (question.options) {
+                  const option = question.options.find(o => o.id === optionId);
+                  if (option) return option;
+                }
+              }
+            }
+          }
+          return null;
+        },
+
+        manageSubQuestions(optionId, questionId) {
+          const option = this.getOptionById(optionId);
+          if (!option) return;
+          
+          // Close other modals
+          this.showAddQuestion = false;
+          this.showTranslationModal = false;
+          this.showLanguageModal = false;
+          this.showSharingModal = false;
+          this.editingValidation = null;
+          
+          // Ensure option.sub_questions always exists and is an array.
+          // This ensures the modal and the option share the same array reference
+          // so we don't need to keep two arrays in sync manually.
+          if (!Array.isArray(option.sub_questions)) {
+            option.sub_questions = [];
+          }
+          
+          // Set up subquestions modal (share the same array reference)
+          this.subQuestionsModal = {
+            optionId: optionId,
+            optionText: option.text,
+            questionId: questionId,
+            subQuestions: option.sub_questions
+          };
+          
+          // Reset new subquestion form
+          this.newSubQuestionText = '';
+          this.newSubQuestionType = 'text';
+          this.newSubQuestionRequired = false;
+          this.editingSubQuestion = null;
+          
+          this.showSubQuestionsModal = true;
+        },
+
+        async addSubQuestion() {
+          if (!this.newSubQuestionText.trim() || !this.subQuestionsModal) return;
+          
+          try {
+            const response = await fetch(`/survey/api/option/${this.subQuestionsModal.optionId}/add-subquestion/`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+              },
+              body: JSON.stringify({
+                text: this.newSubQuestionText.trim(),
+                type: this.newSubQuestionType,
+                is_required: this.newSubQuestionRequired
+              })
+            });
+
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+              // Add to local state (this array is the same reference as option.sub_questions)
+              if (!this.subQuestionsModal.subQuestions) {
+                this.subQuestionsModal.subQuestions = [];
+              }
+              this.subQuestionsModal.subQuestions.push(data.sub_question);
+              
+              // Reset form
+              this.newSubQuestionText = '';
+              this.newSubQuestionType = 'text';
+              this.newSubQuestionRequired = false;
+              
+              showAlert('Sub-question added successfully', 'success');
+            } else {
+              showAlert(data.message || 'Failed to add sub-question', 'error');
+            }
+          } catch (error) {
+            console.error('Error adding sub-question:', error);
+            showAlert('Failed to add sub-question', 'error');
+          }
+        },
+
+        editSubQuestion(subQuestion, index) {
+          this.editingSubQuestion = { ...subQuestion, index };
+          this.newSubQuestionText = subQuestion.text;
+          this.newSubQuestionType = subQuestion.type;
+          this.newSubQuestionRequired = subQuestion.is_required;
+        },
+
+        async deleteSubQuestion(subQuestionId, index) {
+          if (!confirm('Are you sure you want to delete this sub-question?')) return;
+          
+          try {
+            const response = await fetch(`/survey/api/subquestion/${subQuestionId}/delete/`, {
+              method: 'POST',
+              headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+              }
+            });
+
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+              // Remove from local state (this array is the same reference as option.sub_questions)
+              if (this.subQuestionsModal && this.subQuestionsModal.subQuestions) {
+                this.subQuestionsModal.subQuestions.splice(index, 1);
+              }
+              
+              showAlert('Sub-question deleted successfully', 'success');
+            } else {
+              showAlert(data.message || 'Failed to delete sub-question', 'error');
+            }
+          } catch (error) {
+            console.error('Error deleting sub-question:', error);
+            showAlert('Failed to delete sub-question', 'error');
+          }
+        },
+
+        // Sub-question options management functions
+        manageSubQuestionOptions(subQuestion) {
+          // Store the current subQuestionsModal state before closing
+          const currentSubQuestionsModal = { ...this.subQuestionsModal };
+          
+          // Close other modals
+          this.showSubQuestionsModal = false;
+          this.showAddQuestion = false;
+          this.showTranslationModal = false;
+          this.showLanguageModal = false;
+          this.showSharingModal = false;
+          this.editingValidation = null;
+          
+          // Load options for this subquestion
+          this.loadSubQuestionOptions(subQuestion, currentSubQuestionsModal);
+        },
+
+        async loadSubQuestionOptions(subQuestion, currentSubQuestionsModal) {
+          try {
+            const response = await fetch(`/survey/api/question/${subQuestion.id}/details/`);
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+              this.subQuestionOptionsModal = {
+                subQuestionId: subQuestion.id,
+                subQuestionText: subQuestion.text,
+                subQuestionType: subQuestion.type,
+                options: data.question.options || [],
+                // Store the original subQuestionsModal for restoration
+                originalSubQuestionsModal: currentSubQuestionsModal
+              };
+              
+              this.newSubQuestionOptionText = '';
+              this.showSubQuestionOptionsModal = true;
+            } else {
+              showAlert('Failed to load sub-question options', 'error');
+              // Restore subQuestionsModal if loading fails
+              this.subQuestionsModal = currentSubQuestionsModal;
+              this.showSubQuestionsModal = true;
+            }
+          } catch (error) {
+            console.error('Error loading sub-question options:', error);
+            showAlert('Failed to load sub-question options', 'error');
+            // Restore subQuestionsModal on error
+            this.subQuestionsModal = currentSubQuestionsModal;
+            this.showSubQuestionsModal = true;
+          }
+        },
+
+        async addSubQuestionOption() {
+          if (!this.newSubQuestionOptionText.trim() || !this.subQuestionOptionsModal) return;
+          
+          try {
+            const response = await fetch(`/survey/api/question/${this.subQuestionOptionsModal.subQuestionId}/add-option/`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+              },
+              body: JSON.stringify({
+                text: this.newSubQuestionOptionText.trim()
+              })
+            });
+
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+              // Add to local state
+              if (!this.subQuestionOptionsModal.options) {
+                this.subQuestionOptionsModal.options = [];
+              }
+              this.subQuestionOptionsModal.options.push(data.option);
+              
+              // Reset form
+              this.newSubQuestionOptionText = '';
+              
+              showAlert('Option added successfully', 'success');
+            } else {
+              showAlert(data.message || 'Failed to add option', 'error');
+            }
+          } catch (error) {
+            console.error('Error adding option:', error);
+            showAlert('Failed to add option', 'error');
+          }
+        },
+
+        editSubQuestionOption(option, index) {
+          // For now, just show a simple edit interface
+          const newText = prompt('Edit option text:', option.text);
+          if (newText !== null && newText.trim()) {
+            this.updateSubQuestionOption(option.id, newText.trim(), index);
+          }
+        },
+
+        async updateSubQuestionOption(optionId, newText, index) {
+          try {
+            const response = await fetch(`/survey/api/option/${optionId}/update/`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+              },
+              body: JSON.stringify({
+                text: newText
+              })
+            });
+
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+              // Update local state
+              if (this.subQuestionOptionsModal && this.subQuestionOptionsModal.options) {
+                this.subQuestionOptionsModal.options[index].text = data.option.text;
+              }
+              
+              showAlert('Option updated successfully', 'success');
+            } else {
+              showAlert(data.message || 'Failed to update option', 'error');
+            }
+          } catch (error) {
+            console.error('Error updating option:', error);
+            showAlert('Failed to update option', 'error');
+          }
+        },
+
+        async deleteSubQuestionOption(optionId, index) {
+          if (!confirm('Are you sure you want to delete this option?')) return;
+          
+          try {
+            const response = await fetch(`/survey/api/option/${optionId}/delete/`, {
+              method: 'POST',
+              headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+              }
+            });
+
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+              // Remove from local state
+              if (this.subQuestionOptionsModal && this.subQuestionOptionsModal.options) {
+                this.subQuestionOptionsModal.options.splice(index, 1);
+              }
+              
+              showAlert('Option deleted successfully', 'success');
+            } else {
+              showAlert(data.message || 'Failed to delete option', 'error');
+            }
+          } catch (error) {
+            console.error('Error deleting option:', error);
+            showAlert('Failed to delete option', 'error');
+          }
+        },
+
+        async moveQuestionUp(questionId) {
+          const question = this.getQuestionById(questionId);
+          if (!question) return;
+          
+          const currentPage = this.currentPage;
+          if (!currentPage || !currentPage.questions) return;
+          
+          const currentIndex = currentPage.questions.findIndex(q => q.id === questionId);
+          if (currentIndex <= 0) return; // Already at the top
+          
+          // Swap orders
+          const prevQuestion = currentPage.questions[currentIndex - 1];
+          const tempOrder = question.order;
+          question.order = prevQuestion.order;
+          prevQuestion.order = tempOrder;
+          
+          // Reorder array
+          currentPage.questions.splice(currentIndex - 1, 2, question, prevQuestion);
+          
+          // Send update to server
+          await this.saveQuestionOrder(currentPage.id, currentPage.questions);
+        },
+
+        async moveQuestionDown(questionId) {
+          const question = this.getQuestionById(questionId);
+          if (!question) return;
+          
+          const currentPage = this.currentPage;
+          if (!currentPage || !currentPage.questions) return;
+          
+          const currentIndex = currentPage.questions.findIndex(q => q.id === questionId);
+          if (currentIndex >= currentPage.questions.length - 1) return; // Already at the bottom
+          
+          // Swap orders
+          const nextQuestion = currentPage.questions[currentIndex + 1];
+          const tempOrder = question.order;
+          question.order = nextQuestion.order;
+          nextQuestion.order = tempOrder;
+          
+          // Reorder array
+          currentPage.questions.splice(currentIndex, 2, nextQuestion, question);
+          
+          // Send update to server
+          await this.saveQuestionOrder(currentPage.id, currentPage.questions);
+        },
+
+        async saveQuestionOrder(pageId, questions) {
+          try {
+            const questionOrders = questions.map((q, index) => ({
+              id: q.id,
+              order: index
+            }));
+            
+            const response = await fetch(`/survey/api/page/${pageId}/reorder-questions/`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+              },
+              body: JSON.stringify({
+                question_orders: questionOrders
+              })
+            });
+            
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+              // Update local orders to match server
+              questions.forEach((q, index) => {
+                q.order = index;
+              });
+            } else {
+              showAlert('Failed to update question order', 'error');
+              // TODO: Revert local changes if needed
+            }
+          } catch (error) {
+            console.error('Error saving question order:', error);
+            showAlert('Failed to update question order', 'error');
+          }
+        },
+
+        async duplicateQuestion(questionId) {
+          const originalQuestion = this.getQuestionById(questionId);
+          if (!originalQuestion) return;
+
+          try {
+            // Find the page containing this question
+            let targetPageId = null;
+            for (let page of this.pages) {
+              if (page.questions && page.questions.some(q => q.id === questionId)) {
+                targetPageId = page.id;
+                break;
+              }
+            }
+
+            if (!targetPageId) return;
+
+            const response = await fetch(`/survey/api/page/${targetPageId}/quick-add-question/`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+              },
+              body: JSON.stringify({
+                text: originalQuestion.text + ' (Copy)',
+                type: originalQuestion.type,
+                hint: originalQuestion.hint || '',
+                min_length: originalQuestion.min_length || null,
+                max_length: originalQuestion.max_length || null,
+                min_value: originalQuestion.min_value || null,
+                max_value: originalQuestion.max_value || null,
+                validation_pattern: originalQuestion.validation_pattern || '',
+                validation_message: originalQuestion.validation_message || ''
+              })
+            });
+
+            const data = await response.json();
+
+            if (data.status === 'success') {
+              const pageIndex = this.pages.findIndex(p => p.id === targetPageId);
+              if (pageIndex !== -1) {
+                if (!this.pages[pageIndex].questions) {
+                  this.pages[pageIndex].questions = [];
+                }
+                this.pages[pageIndex].questions.push(data.question);
+                this.pages[pageIndex].questions_count++;
+
+                // Copy options if the original question has them
+                if (originalQuestion.options && originalQuestion.options.length > 0) {
+                  for (let option of originalQuestion.options) {
+                    await this.addQuestionOption(data.question.id, option.text);
+                  }
+                }
+              }
+            } else {
+              showAlert(data.message || 'Failed to duplicate question', 'error');
+            }
+          } catch (error) {
+            console.error('Error duplicating question:', error);
+            showAlert('Failed to duplicate question', 'error');
+          }
+        },
+        
+        // Sharing methods
+        async searchUsers() {
+          if (this.searchTimeout) {
+            clearTimeout(this.searchTimeout);
+          }
+          
+          this.searchTimeout = setTimeout(async () => {
+            const query = this.userSearchQuery.trim();
+            
+            if (query.length < 2) {
+              this.searchResults = [];
+              return;
+            }
+            
+            this.isSearching = true;
+            
+            try {
+              const response = await fetch(`/survey/api/{{ survey.pk }}/search-users/?q=${encodeURIComponent(query)}`);
+              const data = await response.json();
+              
+              if (data.status === 'success') {
+                this.searchResults = data.users;
+              } else {
+                this.searchResults = [];
+                console.error('Search error:', data.message);
+              }
+            } catch (error) {
+              console.error('Error searching users:', error);
+              this.searchResults = [];
+            } finally {
+              this.isSearching = false;
+            }
+          }, 300);
+        },
+        
+        async inviteUser(userId) {
+          this.isLoading = true;
+          
+          try {
+            const response = await fetch(`/survey/api/{{ survey.pk }}/invite-user/`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+              },
+              body: JSON.stringify({
+                user_id: userId
+              })
+            });
+            
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+              // Remove user from search results
+              this.searchResults = this.searchResults.filter(user => user.id !== userId);
+              
+              // Add to invitations list
+              this.invitations.unshift(data.invitation);
+              
+              // Clear search if no more results
+              if (this.searchResults.length === 0) {
+                this.userSearchQuery = '';
+              }
+            } else {
+              showAlert(data.message || 'Failed to add user', 'error');
+            }
+          } catch (error) {
+            console.error('Error adding user:', error);
+            showAlert('Failed to add user', 'error');
+          } finally {
+            this.isLoading = false;
+          }
+        },
+        
+        async loadInvitations() {
+          try {
+            const response = await fetch(`/survey/api/{{ survey.pk }}/invitations/`);
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+              this.invitations = data.invitations;
+            } else {
+              console.error('Error loading invitations:', data.message);
+            }
+          } catch (error) {
+            console.error('Error loading invitations:', error);
+          }
+        },
+
+        async cloneSurvey() {
+          if (this.cloningInProgress) return;
+          
+          const title = this.cloneSurveyTitle.trim();
+          
+          if (!title) {
+            alert('Please enter a title for the cloned survey.');
+            return;
+          }
+          
+          if (title.length < 3) {
+            alert('Survey title must be at least 3 characters long.');
+            return;
+          }
+          
+          if (title.length > 255) {
+            alert('Survey title cannot exceed 255 characters.');
+            return;
+          }
+          
+          this.cloningInProgress = true;
+          
+          try {
+            const response = await fetch(`/survey/{{ survey.pk }}/clone/`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+              },
+              body: JSON.stringify({
+                new_title: title
+              })
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok && data.status === 'success') {
+              // Redirect to the new survey
+              window.location.href = data.redirect_url;
+            } else {
+              alert(data.message || 'Failed to clone survey. Please try again.');
+            }
+          } catch (error) {
+            console.error('Error cloning survey:', error);
+            alert('An error occurred while cloning the survey. Please try again.');
+          } finally {
+            this.cloningInProgress = false;
+          }
+        },
+
+        // Conditional Logic Methods
+        async manageConditions(questionId) {
+          this.closeAllModals();
+          
+          const question = this.getQuestionById(questionId);
+          if (!question) return;
+          
+          this.isLoading = true;
+          
+          try {
+            // Load conditions for this question
+            const conditionsResponse = await fetch(`/survey/api/question/${questionId}/conditions/`);
+            const conditionsData = await conditionsResponse.json();
+            
+            // Find the current page and prepare page data
+            const currentPage = this.findQuestionPage(questionId);
+            const availableQuestions = [];
+
+            // Prepare available pages data for the dropdown
+            const availablePages = this.pages.map((page, idx) => {
+              const pageNumber = typeof page.order === 'number' ? page.order + 1 : idx + 1;
+              const title = (page.title || '').trim();
+              return {
+                id: String(page.id),
+                title: title ? `Page ${pageNumber}: ${title}` : `Page ${pageNumber}`,
+                order: typeof page.order === 'number' ? page.order : idx
+              };
+            });
+
+            // Get questions from current page (default behavior)
+            if (currentPage && currentPage.questions) {
+              for (let q of currentPage.questions) {
+                if (q.id !== questionId) {
+                  availableQuestions.push({
+                    ...q,
+                    displayText: `(Page ${currentPage.order + 1}) ${q.order + 1}. ${q.text}`
+                  });
+                }
+              }
+            }
+
+            // The question.is_conditional state is already loaded from the server
+            // Don't override it based on conditions count
+
+            this.conditionModal = {
+              question: question,
+              conditions: conditionsData.status === 'success' ? conditionsData.conditions : [],
+              availableQuestions: availableQuestions,
+              availablePages: availablePages,
+              selectedPageId: 'current', // Default to current page
+              currentPageId: currentPage ? String(currentPage.id) : '',
+              showOptionsDropdown: false,
+              targetQuestionOptions: []
+            };
+            
+            this.showConditionModal = true;
+            // Initialize the modal after it's shown to ensure proper rendering
+            this.$nextTick(() => {
+              this.initConditionModal();
+            });
+          } catch (error) {
+            console.error('Error loading conditions:', error);
+            showAlert('Failed to load conditions', 'error');
+          } finally {
+            this.isLoading = false;
+          }
+        },
+
+        // Option Conditional Logic Methods
+        async manageOptionConditions(optionId, questionId) {
+          this.closeAllModals();
+
+          const option = this.getOptionById(optionId);
+          if (!option) return;
+
+          this.isLoading = true;
+          try {
+            const conditionsResponse = await fetch(`/survey/api/option/${optionId}/conditions/`);
+            const conditionsData = await conditionsResponse.json();
+
+            const currentPage = this.findQuestionPage(questionId);
+            const pagesList = Array.isArray(this.pages)
+              ? this.pages.map((page, idx) => {
+                  const pageNumber = typeof page.order === 'number' ? page.order + 1 : idx + 1;
+                  const title = (page.title || '').trim();
+                  return {
+                    id: String(page.id),
+                    title: title ? `Page ${pageNumber}: ${title}` : `Page ${pageNumber}`,
+                    order: typeof page.order === 'number' ? page.order : idx
+                  };
+                })
+              : [];
+
+            this.resetOptionConditionModal();
+            this.optionConditionModal = {
+              ...this.optionConditionModal,
+              option: option,
+              questionId: questionId,
+              conditions: conditionsData.status === 'success' ? conditionsData.conditions : [],
+              pages: pagesList,
+              selectedPageId: 'current',
+              currentPageId: currentPage ? String(currentPage.id) : ''
+            };
+
+            option.is_conditional = conditionsData.status === 'success' ? !!conditionsData.is_conditional : option.is_conditional;
+            this.refreshOptionConditionQuestions();
+            this.showOptionConditionModal = true;
+
+            this.$nextTick(() => {
+              this.initOptionConditionModal();
+            });
+          } catch (e) {
+            console.error('Error loading option conditions:', e);
+            showAlert('Failed to load option conditions', 'error');
+          } finally {
+            this.isLoading = false;
+          }
+        },
+
+        async toggleOptionConditional(optionId, isConditional) {
+          try {
+            const resp = await fetch(`/survey/api/option/${optionId}/toggle-conditional/`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
+              body: JSON.stringify({ is_conditional: isConditional })
+            });
+            const data = await resp.json();
+            if (data.status === 'success') {
+              const opt = this.getOptionById(optionId);
+              if (opt) opt.is_conditional = isConditional;
+            } else {
+              showAlert(data.message || 'Failed to update option conditional flag', 'error');
+            }
+          } catch (e) {
+            console.error('toggleOptionConditional error', e);
+            showAlert('Failed to update option conditional flag', 'error');
+          }
+        },
+
+        async addOptionCondition() {
+          // Validate
+          if (!this.newOptionCondition.target_question_id) return;
+          if (!['is_empty', 'is_not_empty'].includes(this.newOptionCondition.condition_type) && !this.newOptionCondition.value) return;
+          this.isLoading = true;
+          try {
+            const optionId = this.optionConditionModal.option.id;
+            const resp = await fetch(`/survey/api/option/${optionId}/add-condition/`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
+              body: JSON.stringify(this.newOptionCondition)
+            });
+            const data = await resp.json();
+            if (data.status === 'success') {
+              this.optionConditionModal.conditions.push(data.condition);
+              this.newOptionCondition = { target_question_id: '', condition_type: 'equals', value: '', logic_operator: 'AND' };
+              this.optionConditionModal.showOptionsDropdown = false;
+              this.optionConditionModal.targetQuestionOptions = [];
+            } else {
+              showAlert(data.message || 'Failed to add option condition', 'error');
+            }
+          } catch (e) {
+            console.error('addOptionCondition error', e);
+            showAlert('Failed to add option condition', 'error');
+          } finally {
+            this.isLoading = false;
+          }
+        },
+
+        async deleteOptionCondition(conditionId, index) {
+          if (!confirm('Are you sure you want to delete this condition?')) return;
+          this.isLoading = true;
+          try {
+            const resp = await fetch(`/survey/api/option-condition/${conditionId}/delete/`, {
+              method: 'POST',
+              headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value }
+            });
+            const data = await resp.json();
+            if (data.status === 'success') {
+              this.optionConditionModal.conditions.splice(index, 1);
+            } else {
+              showAlert(data.message || 'Failed to delete option condition', 'error');
+            }
+          } catch (e) {
+            console.error('deleteOptionCondition error', e);
+            showAlert('Failed to delete option condition', 'error');
+          } finally {
+            this.isLoading = false;
+          }
+        },
+
+        refreshOptionConditionQuestions() {
+          if (!this.optionConditionModal || !this.optionConditionModal.questionId) return;
+
+          const selectedPageId = this.optionConditionModal.selectedPageId || 'current';
+          const questionId = this.optionConditionModal.questionId;
+          const pages = Array.isArray(this.pages) ? this.pages : [];
+          const currentPage = this.findQuestionPage(questionId);
+          let availableQuestions = [];
+
+          const addQuestionsFromPage = (page, pageIndex) => {
+            if (!page || !Array.isArray(page.questions)) return;
+
+            page.questions.forEach(q => {
+              if (String(q.id) === String(questionId)) return;
+              availableQuestions.push({
+                ...q,
+                id: String(q.id),
+                page_id: String(page.id),
+                page_order: typeof page.order === 'number' ? page.order : pageIndex,
+                displayText: `${q.order + 1}. ${q.text}`
+              });
+            });
+          };
+
+          if (selectedPageId === 'all') {
+            pages.forEach((page, index) => addQuestionsFromPage(page, index));
+          } else if (selectedPageId === 'current') {
+            const currentIndex = pages.findIndex(page => currentPage && String(page.id) === String(currentPage.id));
+            addQuestionsFromPage(currentPage, currentIndex >= 0 ? currentIndex : 0);
+          } else {
+            const selectedPage = pages.find(page => String(page.id) === String(selectedPageId));
+            const selectedIndex = pages.findIndex(page => selectedPage && String(page.id) === String(selectedPage.id));
+            addQuestionsFromPage(selectedPage, selectedIndex >= 0 ? selectedIndex : 0);
+          }
+
+          availableQuestions.sort((a, b) => {
+            if (a.page_order !== b.page_order) return a.page_order - b.page_order;
+            return a.order - b.order;
+          });
+
+          this.optionConditionModal.availableQuestions = availableQuestions;
+
+          const currentTargetId = String(this.newOptionCondition.target_question_id || '');
+          if (!currentTargetId || !availableQuestions.some(q => q.id === currentTargetId)) {
+            this.newOptionCondition.target_question_id = '';
+            this.newOptionCondition.value = '';
+            this.optionConditionModal.showOptionsDropdown = false;
+            this.optionConditionModal.targetQuestionOptions = [];
+          }
+        },
+
+        initOptionConditionModal() {
+          this.refreshOptionConditionQuestions();
+          if (this.newOptionCondition.target_question_id) {
+            this.updateOptionValueFieldType(this.newOptionCondition.target_question_id);
+          }
+        },
+
+        async updateOptionValueFieldType(targetQuestionId) {
+          this.newOptionCondition.target_question_id = targetQuestionId ? String(targetQuestionId) : '';
+
+          if (!this.newOptionCondition.target_question_id) {
+            this.optionConditionModal.showOptionsDropdown = false;
+            this.optionConditionModal.targetQuestionOptions = [];
+            this.newOptionCondition.value = '';
+            return;
+          }
+
+          const targetQuestion = this.getQuestionById(this.newOptionCondition.target_question_id);
+          if (!targetQuestion || !['radio', 'checkbox', 'dropdown'].includes(targetQuestion.type)) {
+            this.optionConditionModal.showOptionsDropdown = false;
+            this.optionConditionModal.targetQuestionOptions = [];
+            this.newOptionCondition.value = '';
+            return;
+          }
+
+          if (!targetQuestion.options || targetQuestion.options.length === 0) {
+            try {
+              const response = await fetch(`/survey/api/question/${this.newOptionCondition.target_question_id}/details/`);
+              const data = await response.json();
+              if (data.status === 'success' && data.question && Array.isArray(data.question.options)) {
+                targetQuestion.options = data.question.options;
+              }
+            } catch (error) {
+              console.error('Error loading option condition target question details:', error);
+            }
+          }
+
+          const options = Array.isArray(targetQuestion.options)
+            ? targetQuestion.options.map(opt => ({
+                id: opt.id,
+                text: opt.text
+              }))
+            : [];
+
+          if (options.length > 0) {
+            this.optionConditionModal.showOptionsDropdown = true;
+            this.optionConditionModal.targetQuestionOptions = options;
+            if (!this.newOptionCondition.value || !options.some(opt => opt.text === this.newOptionCondition.value)) {
+              this.newOptionCondition.value = options[0].text;
+            }
+          } else {
+            this.optionConditionModal.showOptionsDropdown = false;
+            this.optionConditionModal.targetQuestionOptions = [];
+            this.newOptionCondition.value = '';
+          }
+        },
+
+        getOptionConditionPageSourceLabel() {
+          const selectedPageId = this.optionConditionModal?.selectedPageId || 'current';
+          if (selectedPageId === 'current') return 'Current Page';
+          if (selectedPageId === 'all') return 'All Pages';
+
+          const pages = Array.isArray(this.optionConditionModal?.pages) ? this.optionConditionModal.pages : [];
+          const page = pages.find(item => String(item.id) === String(selectedPageId));
+          return page?.title || 'Select page';
+        },
+
+        getOptionConditionQuestionLabel() {
+          const targetQuestionId = String(this.newOptionCondition?.target_question_id || '');
+          if (!targetQuestionId) return 'Select a question';
+
+          const questions = Array.isArray(this.optionConditionModal?.availableQuestions)
+            ? this.optionConditionModal.availableQuestions
+            : [];
+          const question = questions.find(item => String(item.id) === targetQuestionId);
+          return question?.displayText || question?.text || `Question ${targetQuestionId}`;
+        },
+
+        getOptionConditionValueLabel() {
+          const value = this.newOptionCondition?.value || '';
+          if (!value) return 'Select value';
+
+          const options = Array.isArray(this.optionConditionModal?.targetQuestionOptions)
+            ? this.optionConditionModal.targetQuestionOptions
+            : [];
+          const option = options.find(item => item.text === value);
+          return option?.text || value;
+        },
+
+        isValidNewOptionCondition() {
+          if (!this.newOptionCondition.target_question_id) return false;
+          if (!this.newOptionCondition.condition_type) return false;
+          if (!['is_empty', 'is_not_empty'].includes(this.newOptionCondition.condition_type)) {
+            return !!this.newOptionCondition.value;
+          }
+          return true;
+        },
+
+        // Option warning helpers
+        createEmptyWarningConfig() {
+          return {
+            enabled: false,
+            target_question_id: '',
+            condition_type: 'equals',
+            value: '',
+            message: '',
+            showOptionsDropdown: false,
+            targetQuestionOptions: [],
+            page_id: 'current',
+            availableQuestions: [],
+          };
+        },
+
+        resetOptionWarningModal() {
+          this.optionWarningModal = {
+            option: null,
+            questionId: null,
+            availableQuestions: [],
+            pages: [],
+            currentPageId: '',
+            targetQuestionsMap: {},
+            configs: {
+              selected: this.createEmptyWarningConfig(),
+              not_selected: this.createEmptyWarningConfig(),
+            },
+            // View management
+            currentView: 'warning', // 'warning' or 'translation'
+            editingWarningType: null, // 'selected' or 'not_selected'
+            defaultMessage: '',
+            bulkTranslations: {},
+          };
+        },
+
+        resetOptionConditionModal() {
+          this.optionConditionModal = {
+            option: null,
+            questionId: null,
+            conditions: [],
+            pages: [],
+            selectedPageId: 'current',
+            currentPageId: '',
+            availableQuestions: [],
+            showOptionsDropdown: false,
+            targetQuestionOptions: []
+          };
+          this.newOptionCondition = {
+            target_question_id: '',
+            condition_type: 'equals',
+            value: '',
+            logic_operator: 'AND'
+          };
+        },
+
+        normalizeWarningValue(value) {
+          if (value === null || value === undefined) return '';
+          if (Array.isArray(value)) return value; // Keep arrays as-is for 'in'/'not_in'
+          if (typeof value === 'string') return value.trim();
+          return String(value).trim();
+        },
+
+        isConfigValueRequired(conditionType) {
+          return !['is_empty', 'is_not_empty'].includes(conditionType);
+        },
+
+        isWarningConfigComplete(cfg) {
+          if (!cfg || !cfg.enabled) return false;
+          if (!cfg.target_question_id) return false;
+          if (!cfg.condition_type) return false;
+          if (this.isConfigValueRequired(cfg.condition_type)) {
+            const normalizedValue = this.normalizeWarningValue(cfg.value);
+            if (Array.isArray(normalizedValue)) {
+              if (normalizedValue.length === 0) return false;
+            } else {
+              if (!normalizedValue) return false;
+            }
+          }
+          if (!this.normalizeWarningValue(cfg.message)) return false;
+          return true;
+        },
+
+        toggleOptionWarningEnabled(typeKey, enabled) {
+          if (!this.optionWarningModal || !this.optionWarningModal.configs[typeKey]) return;
+          const config = this.optionWarningModal.configs[typeKey];
+          if (enabled) {
+            config.enabled = true;
+            if (!config.condition_type) config.condition_type = 'equals';
+          } else {
+            const defaults = this.createEmptyWarningConfig();
+            Object.assign(config, defaults);
+          }
+          this.refreshOptionWarningQuestions();
+
+          // Update value field type if target question is already selected
+          if (enabled && config.target_question_id) {
+            this.$nextTick(() => {
+              this.updateOptionWarningValueFieldType(typeKey, config.target_question_id, { preserveValue: true });
+            });
+          }
+        },
+
+        refreshOptionWarningQuestions(targetType = null) {
+          if (!this.optionWarningModal) return;
+          const questionId = this.optionWarningModal.questionId;
+          if (!questionId) return;
+
+          const pages = Array.isArray(this.pages) ? this.pages : [];
+          const currentPage = this.findQuestionPage(questionId);
+          const targetMap = this.optionWarningModal.targetQuestionsMap || {};
+
+          if (!this.optionWarningModal.currentPageId) {
+            this.optionWarningModal.currentPageId = currentPage ? String(currentPage.id) : '';
+          }
+
+          const buildPageDisplay = (page, index) => {
+            if (!page) return 'Page';
+            const pageNumber = typeof page.order === 'number' ? page.order + 1 : index + 1;
+            const title = (page.title || '').trim();
+            return title ? `Page ${pageNumber}: ${title}` : `Page ${pageNumber}`;
+          };
+
+          const getQuestionsForConfig = config => {
+            if (!config) return [];
+            let pageId = config.page_id || 'current';
+            const allowAll = pageId === 'all';
+            const allowCurrent = pageId === 'current';
+
+            const entries = [];
+            const addEntry = (question, page, pageIndex) => {
+              if (!question) return;
+              const id = String(question.id);
+              if (entries.some(q => q.id === id)) return;
+              const pageOrder = typeof page?.order === 'number' ? page.order : pageIndex;
+              entries.push({
+                id,
+                text: question.text,
+                order: typeof question.order === 'number' ? question.order : 0,
+                page_id: page ? String(page.id) : '',
+                page_title: buildPageDisplay(page, pageIndex),
+                page_order: pageOrder,
+              });
+            };
+
+            const pushPage = (page, index) => {
+              if (!page || !Array.isArray(page.questions)) return;
+              page.questions.forEach(q => addEntry(q, page, index));
+            };
+
+            if (allowAll) {
+              pages.forEach((page, idx) => pushPage(page, idx));
+            } else if (allowCurrent) {
+              const index = pages.findIndex(p => currentPage && p.id === currentPage.id);
+              pushPage(currentPage, index >= 0 ? index : 0);
+            } else {
+              const targetPage = pages.find(p => String(p.id) === pageId);
+              const index = pages.findIndex(p => targetPage && p.id === targetPage.id);
+              pushPage(targetPage, index >= 0 ? index : 0);
+            }
+
+            if (config.enabled && config.target_question_id) {
+              if (!entries.some(q => q.id === config.target_question_id)) {
+                const details = targetMap[String(config.target_question_id)] || {};
+                const page = pages.find(p => String(p.id) === String(details.page_id));
+                const pageIndex = pages.findIndex(p => page && p.id === page.id);
+                entries.push({
+                  id: String(details.id || config.target_question_id),
+                  text: details.text || config.target_question_id,
+                  order: typeof details.order === 'number' ? details.order : 0,
+                  page_id: String(details.page_id || ''),
+                  page_title: details.page_title || buildPageDisplay(page, pageIndex),
+                  page_order: typeof details.page_order === 'number' ? details.page_order : pageIndex,
+                });
+              }
+            }
+
+            entries.sort((a, b) => {
+              if (a.page_order !== b.page_order) return a.page_order - b.page_order;
+              return a.order - b.order;
+            });
+
+            return entries;
+          };
+
+          const types = targetType ? [targetType] : ['selected', 'not_selected'];
+          types.forEach(typeKey => {
+            const config = this.optionWarningModal.configs[typeKey];
+            if (!config) return;
+            if (!config.page_id) config.page_id = 'current';
+            const entries = getQuestionsForConfig(config);
+            config.availableQuestions = entries;
+
+            if (config.enabled) {
+              const exists = entries.some(q => q.id === config.target_question_id);
+              if (!exists) {
+                if (entries.length) {
+                  config.target_question_id = entries[0].id;
+                  config.value = '';
+                } else {
+                  config.target_question_id = '';
+                  config.value = '';
+                }
+              }
+              if (config.target_question_id) {
+                this.updateOptionWarningValueFieldType(typeKey, config.target_question_id, { preserveValue: true });
+              }
+            }
+          });
+        },
+
+        async manageOptionWarning(optionId, questionId) {
+          const option = this.getOptionById(optionId);
+          if (!option) {
+            console.warn('[OptionWarning] Option not found for ID:', optionId);
+            showAlert('Option not found', 'error');
+            return;
+          }
+
+          this.isLoading = true;
+          try {
+            const response = await fetch(`/survey/api/option/${optionId}/warning/`);
+            const data = await response.json();
+            console.log('[OptionWarning] API payload:', data);
+
+            if (data.status !== 'success') {
+              showAlert(data.message || 'Failed to load option warnings', 'error');
+              return;
+            }
+
+            this.closeAllModals();
+            this.resetOptionWarningModal();
+            this.optionWarningModal.option = option;
+            this.optionWarningModal.questionId = questionId;
+
+            const currentPage = this.findQuestionPage(questionId);
+            const pagesList = Array.isArray(this.pages)
+              ? this.pages.map((page, idx) => ({
+                  id: String(page.id),
+                  title: (() => {
+                    const pageNumber = typeof page.order === 'number' ? page.order + 1 : idx + 1;
+                    const title = (page.title || '').trim();
+                    return title ? `Page ${pageNumber}: ${title}` : `Page ${pageNumber}`;
+                  })(),
+                  order: typeof page.order === 'number' ? page.order : idx,
+                }))
+              : [];
+
+            this.optionWarningModal.pages = pagesList;
+            this.optionWarningModal.currentPageId = currentPage ? String(currentPage.id) : '';
+            
+            const targetQuestionsMap = data.target_questions || {};
+            this.optionWarningModal.targetQuestionsMap = targetQuestionsMap;
+
+            const warningsPayload = data.warnings || {};
+            ['selected', 'not_selected'].forEach(typeKey => {
+              const payload = warningsPayload?.[typeKey];
+              const config = this.optionWarningModal.configs[typeKey];
+              Object.assign(config, this.createEmptyWarningConfig());
+              if (payload && payload.target_question_id) {
+                config.enabled = true;
+                config.target_question_id = String(payload.target_question_id);
+                config.condition_type = payload.condition_type || 'equals';
+                config.value = this.normalizeWarningValue(payload.value);
+                config.message = payload.message || '';
+                const detail = this.optionWarningModal.targetQuestionsMap[String(payload.target_question_id)] || {};
+                let pageId = detail.page_id ? String(detail.page_id) : '';
+                if (pageId && this.optionWarningModal.currentPageId && pageId === this.optionWarningModal.currentPageId) {
+                  pageId = 'current';
+                } else if (!pageId) {
+                  pageId = 'current';
+                }
+                config.page_id = pageId;
+                console.log(`[OptionWarning] Loaded ${typeKey} config:`, JSON.parse(JSON.stringify(config)));
+              }
+            });
+
+            this.refreshOptionWarningQuestions();
+            this.showOptionWarningModal = true;
+
+            this.$nextTick(() => {
+              console.log('[OptionWarning] Modal state after initial nextTick:', JSON.parse(JSON.stringify(this.optionWarningModal.configs)));
+              ['selected', 'not_selected'].forEach(typeKey => {
+                const config = this.optionWarningModal.configs[typeKey];
+                if (config.enabled && config.target_question_id) {
+                  this.updateOptionWarningValueFieldType(typeKey, config.target_question_id, { preserveValue: true });
+                } else if (!config.enabled) {
+                  config.target_question_id = '';
+                  config.condition_type = 'equals';
+                  config.value = '';
+                  config.message = '';
+                  config.showOptionsDropdown = false;
+                  config.targetQuestionOptions = [];
+                }
+              });
+            });
+          } catch (e) {
+            console.error('Error loading option warnings:', e);
+            showAlert('Failed to load option warnings', 'error');
+          } finally {
+            this.isLoading = false;
+          }
+        },
+
+        updateOptionWarningValueFieldType(typeKey, targetQuestionId, options = {}) {
+          if (!this.optionWarningModal || !this.optionWarningModal.configs[typeKey]) return;
+          const config = this.optionWarningModal.configs[typeKey];
+          const preserveValue = options.preserveValue || false;
+
+          console.log(`[OptionWarning] updateOptionWarningValueFieldType(${typeKey}) called with target:`, targetQuestionId, 'preserveValue:', preserveValue);
+          config.target_question_id = targetQuestionId ? String(targetQuestionId) : '';
+          config.showOptionsDropdown = false;
+          config.targetQuestionOptions = [];
+
+          if (!config.target_question_id) {
+            config.value = '';
+            console.log(`[OptionWarning] ${typeKey} cleared due to empty target`);
+            return;
+          }
+
+          const targetId = parseInt(config.target_question_id, 10);
+          const targetQuestion = this.getQuestionById(targetId);
+          console.log(`[OptionWarning] ${typeKey} target question`, targetQuestion);
+
+          const assignOptions = optionsList => {
+            if (Array.isArray(optionsList) && optionsList.length > 0) {
+              const plainOptions = optionsList.map(opt => ({
+                id: opt.id,
+                text: this.normalizeWarningValue(opt.text || ''),
+              }));
+              config.showOptionsDropdown = true;
+              config.targetQuestionOptions = plainOptions;
+              console.log(`[OptionWarning] ${typeKey} assigned options:`, plainOptions);
+              console.log(`[OptionWarning] ${typeKey} showOptionsDropdown is now:`, config.showOptionsDropdown);
+
+              const currentValue = this.normalizeWarningValue(config.value);
+              let matchedValue = '';
+
+              if (preserveValue && currentValue && typeof currentValue === 'string') {
+                matchedValue = plainOptions.find(opt => this.normalizeWarningValue(opt.text) === currentValue)?.text || '';
+                if (!matchedValue) {
+                  matchedValue = plainOptions.find(opt => {
+                    const optText = this.normalizeWarningValue(opt.text);
+                    return typeof optText === 'string' && optText.toLowerCase() === currentValue.toLowerCase();
+                  })?.text || '';
+                }
+              } else if (preserveValue && Array.isArray(currentValue)) {
+                // For array values (in/not_in conditions), keep as-is
+                matchedValue = null; // Signal to skip the matching logic below
+                config.value = currentValue;
+                console.log(`[OptionWarning] ${typeKey} preserved array value:`, currentValue);
+              }
+
+              if (matchedValue) {
+                config.value = this.normalizeWarningValue(matchedValue);
+                console.log(`[OptionWarning] ${typeKey} matched existing value:`, config.value);
+              } else if (matchedValue === null) {
+                // Array value was already preserved above, do nothing
+              } else if (this.isConfigValueRequired(config.condition_type)) {
+                config.value = this.normalizeWarningValue(plainOptions[0]?.text || '');
+                console.log(`[OptionWarning] ${typeKey} defaulted value:`, config.value);
+              } else {
+                config.value = '';
+                console.log(`[OptionWarning] ${typeKey} cleared value due to condition type:`, config.condition_type);
+              }
+            } else {
+              config.showOptionsDropdown = false;
+              config.targetQuestionOptions = [];
+              if (!preserveValue || !this.isConfigValueRequired(config.condition_type)) {
+                config.value = '';
+              }
+              console.log(`[OptionWarning] ${typeKey} no options available.`, { preserveValue, value: config.value });
+            }
+            this.$nextTick(() => {
+              const questionRefKey = typeKey === 'selected' ? 'selectedQuestionSelect' : 'notSelectedQuestionSelect';
+              const valueRefKey = typeKey === 'selected' ? 'selectedValueSelect' : 'notSelectedValueSelect';
+              let questionSelect = this.$refs[questionRefKey];
+              if (Array.isArray(questionSelect)) questionSelect = questionSelect[0];
+              if (questionSelect) {
+                questionSelect.value = config.target_question_id || '';
+              }
+              let valueSelect = this.$refs[valueRefKey];
+              if (Array.isArray(valueSelect)) valueSelect = valueSelect[0];
+              if (valueSelect) {
+                valueSelect.value = this.normalizeWarningValue(config.value);
+              }
+              console.log(`[OptionWarning] ${typeKey} post-assign state:`, JSON.parse(JSON.stringify(config)));
+            });
+          };
+
+          if (targetQuestion && ['radio', 'checkbox', 'dropdown'].includes(targetQuestion.type)) {
+            if (targetQuestion.options && targetQuestion.options.length > 0) {
+              assignOptions(targetQuestion.options);
+            } else {
+              console.log(`[OptionWarning] ${typeKey} fetching question details for options`);
+              fetch(`/survey/api/question/${targetId}/details/`).then(r => r.json()).then(detailData => {
+                this.$nextTick(() => {
+                  if (detailData.status === 'success' && detailData.question?.options) {
+                    targetQuestion.options = detailData.question.options;
+                    assignOptions(targetQuestion.options);
+                  } else {
+                    assignOptions([]);
+                  }
+                });
+              }).catch(err => {
+                console.warn(`[OptionWarning] ${typeKey} failed to load options`, err);
+                this.$nextTick(() => {
+                  assignOptions([]);
+                });
+              });
+            }
+          } else {
+            assignOptions([]);
+          }
+          console.log(`[OptionWarning] ${typeKey} final config after update:`, JSON.parse(JSON.stringify(config)));
+        },
+
+        handleOptionWarningConditionChange(typeKey, newType) {
+          if (!this.optionWarningModal || !this.optionWarningModal.configs[typeKey]) return;
+          const config = this.optionWarningModal.configs[typeKey];
+          const oldType = config.condition_type;
+          config.condition_type = newType;
+
+          if (!this.isConfigValueRequired(newType)) {
+            config.value = '';
+          } else {
+            // Handle switching between 'in'/'not_in' and other condition types
+            const isNewTypeMulti = ['in', 'not_in', 'is_in', 'is in', 'is-in', 'not in', 'not-in'].includes(newType);
+            const isOldTypeMulti = ['in', 'not_in', 'is_in', 'is in', 'is-in', 'not in', 'not-in'].includes(oldType);
+
+            if (isNewTypeMulti && !isOldTypeMulti) {
+              // Converting from single to multi: wrap current value in array
+              if (config.value) {
+                config.value = Array.isArray(config.value) ? config.value : [config.value];
+              } else if (config.showOptionsDropdown && config.targetQuestionOptions.length > 0) {
+                config.value = [];
+              } else {
+                config.value = [];
+              }
+            } else if (!isNewTypeMulti && isOldTypeMulti) {
+              // Converting from multi to single: take first value
+              if (Array.isArray(config.value) && config.value.length > 0) {
+                config.value = this.normalizeWarningValue(config.value[0]);
+              } else if (config.showOptionsDropdown && config.targetQuestionOptions.length > 0) {
+                config.value = this.normalizeWarningValue(config.targetQuestionOptions[0].text || '');
+              } else {
+                config.value = '';
+              }
+            } else if (!config.value && config.showOptionsDropdown && config.targetQuestionOptions.length > 0) {
+              if (isNewTypeMulti) {
+                config.value = [];
+              } else {
+                config.value = this.normalizeWarningValue(config.targetQuestionOptions[0].text || '');
+              }
+            }
+          }
+        },
+
+        isValidOptionWarning() {
+          if (!this.optionWarningModal || !this.optionWarningModal.configs) return false;
+          const configs = this.optionWarningModal.configs;
+          return this.isWarningConfigComplete(configs.selected) || this.isWarningConfigComplete(configs.not_selected);
+        },
+
+        buildWarningPayload(typeKey) {
+          const cfg = this.optionWarningModal?.configs?.[typeKey];
+          if (!this.isWarningConfigComplete(cfg)) {
+            return { enabled: false };
+          }
+          return {
+            enabled: true,
+            target_question_id: cfg.target_question_id,
+            condition_type: cfg.condition_type,
+            value: this.normalizeWarningValue(cfg.value),
+            message: typeof cfg.message === 'string' ? cfg.message.trim() : '',
+          };
+        },
+
+        async saveOptionWarning() {
+          if (!this.optionWarningModal || !this.optionWarningModal.option) return;
+          if (!this.isValidOptionWarning()) return;
+
+          this.isLoading = true;
+          try {
+            const payload = {
+              selected: this.buildWarningPayload('selected'),
+              not_selected: this.buildWarningPayload('not_selected'),
+            };
+
+            const anyEnabled = Object.values(payload).some(entry => entry.enabled);
+            if (!anyEnabled) {
+              showAlert('Configure at least one warning before saving.', 'error');
+              return;
+            }
+
+            const resp = await fetch(`/survey/api/option/${this.optionWarningModal.option.id}/warning/`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+              },
+              body: JSON.stringify(payload),
+            });
+
+            const data = await resp.json();
+            if (data.status === 'success') {
+              const opt = this.getOptionById(this.optionWarningModal.option.id);
+              if (opt) {
+                opt.option_warning = data.option_warning || data.warnings || null;
+                opt.option_warning_text = data.option_warning_text || '';
+              }
+              showAlert('Option warnings saved', 'success');
+              this.showOptionWarningModal = false;
+              this.resetOptionWarningModal();
+            } else {
+              showAlert(data.message || 'Failed to save option warnings', 'error');
+            }
+          } catch (e) {
+            console.error('saveOptionWarning error', e);
+            showAlert('Failed to save option warnings', 'error');
+          } finally {
+            this.isLoading = false;
+          }
+        },
+
+        async deleteOptionWarning() {
+          if (!this.optionWarningModal || !this.optionWarningModal.option) return;
+          if (!confirm('Remove all warnings for this option?')) return;
+
+          this.isLoading = true;
+          try {
+            const resp = await fetch(`/survey/api/option/${this.optionWarningModal.option.id}/warning/`, {
+              method: 'DELETE',
+              headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+              },
+            });
+            const data = await resp.json();
+            if (data.status === 'success') {
+              const opt = this.getOptionById(this.optionWarningModal.option.id);
+              if (opt) {
+                opt.option_warning = null;
+                opt.option_warning_text = '';
+              }
+              showAlert('Option warnings removed', 'success');
+              this.showOptionWarningModal = false;
+              this.resetOptionWarningModal();
+            } else {
+              showAlert(data.message || 'Failed to remove option warnings', 'error');
+            }
+          } catch (e) {
+            console.error('deleteOptionWarning error', e);
+            showAlert('Failed to remove option warnings', 'error');
+          } finally {
+            this.isLoading = false;
+          }
+        },
+
+        async editWarningTranslation(optionId, warningType) {
+          console.log('[WarningTranslation] Switching to translation view for option:', optionId, 'type:', warningType);
+
+          // Initialize translations for all available languages
+          const bulkTranslations = {};
+          for (const lang of this.availableLanguages) {
+            if (lang.code !== '{{ survey.default_language }}') {
+              bulkTranslations[lang.code] = '';
+            }
+          }
+
+          // Load existing translations
+          try {
+            const response = await fetch(`/survey/api/option/${optionId}/warning-translations/`, {
+              method: 'GET',
+              headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+              }
+            });
+
+            const data = await response.json();
+            if (data.status === 'success') {
+              // Update with existing translations for this warning type
+              const typeTranslations = data.translations[warningType] || {};
+              for (const lang of this.availableLanguages) {
+                if (lang.code !== '{{ survey.default_language }}' && typeTranslations[lang.code]) {
+                  bulkTranslations[lang.code] = typeTranslations[lang.code];
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Error loading warning translations:', error);
+          }
+
+          // Get the default warning message
+          const defaultMessage = this.optionWarningModal.configs[warningType].message || '';
+
+          // Update option warning modal state for translation view
+          this.optionWarningModal.editingWarningType = warningType;
+          this.optionWarningModal.defaultMessage = defaultMessage;
+          this.optionWarningModal.bulkTranslations = bulkTranslations;
+          this.optionWarningModal.currentView = 'translation';
+        },
+
+        async saveWarningTranslation(language) {
+          const { optionId, warningType, bulkTranslations } = this.warningTranslationModal;
+          const message = bulkTranslations[language] || '';
+
+          try {
+            const response = await fetch(`/survey/api/option/${optionId}/warning-translations/`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+              },
+              body: JSON.stringify({
+                language: language,
+                warning_type: warningType,
+                message: message
+              })
+            });
+
+            const data = await response.json();
+            if (data.status === 'success') {
+              showAlert(data.message || 'Warning translation saved successfully', 'success');
+            } else {
+              showAlert(data.message || 'Failed to save warning translation', 'error');
+            }
+          } catch (error) {
+            console.error('Error saving warning translation:', error);
+            showAlert('Failed to save warning translation', 'error');
+          }
+        },
+
+        async saveBulkWarningTranslations() {
+          const { optionId, warningType, bulkTranslations } = this.warningTranslationModal;
+          this.isLoading = true;
+
+          let successCount = 0;
+          let errorCount = 0;
+
+          try {
+            for (const [language, message] of Object.entries(bulkTranslations)) {
+              if (language === '{{ survey.default_language }}') continue;
+
+              try {
+                const response = await fetch(`/survey/api/option/${optionId}/warning-translations/`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                  },
+                  body: JSON.stringify({
+                    language: language,
+                    warning_type: warningType,
+                    message: message
+                  })
+                });
+
+                const data = await response.json();
+                if (data.status === 'success') {
+                  successCount++;
+                } else {
+                  errorCount++;
+                  console.error(`Failed to save ${language} translation:`, data.message);
+                }
+              } catch (error) {
+                errorCount++;
+                console.error(`Error saving ${language} translation:`, error);
+              }
+            }
+
+            if (successCount > 0) {
+              showAlert(`Saved ${successCount} warning translation(s) successfully`, 'success');
+              this.showWarningTranslationModal = false;
+            } else if (errorCount > 0) {
+              showAlert(`Failed to save warning translations`, 'error');
+            }
+          } finally {
+            this.isLoading = false;
+          }
+        },
+
+        async saveBulkWarningTranslationsInModal() {
+          const optionId = this.optionWarningModal.option.id;
+          const warningType = this.optionWarningModal.editingWarningType;
+          const bulkTranslations = this.optionWarningModal.bulkTranslations;
+          this.isLoading = true;
+
+          let successCount = 0;
+          let errorCount = 0;
+
+          try {
+            for (const [language, message] of Object.entries(bulkTranslations)) {
+              if (language === '{{ survey.default_language }}') continue;
+
+              try {
+                const response = await fetch(`/survey/api/option/${optionId}/warning-translations/`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                  },
+                  body: JSON.stringify({
+                    language: language,
+                    warning_type: warningType,
+                    message: message
+                  })
+                });
+
+                const data = await response.json();
+                if (data.status === 'success') {
+                  successCount++;
+                } else {
+                  errorCount++;
+                  console.error(`Failed to save ${language} translation:`, data.message);
+                }
+              } catch (error) {
+                errorCount++;
+                console.error(`Error saving ${language} translation:`, error);
+              }
+            }
+
+            if (successCount > 0) {
+              showAlert(`Saved ${successCount} warning translation(s) successfully`, 'success');
+              // Switch back to warning view
+              this.optionWarningModal.currentView = 'warning';
+            } else if (errorCount > 0) {
+              showAlert(`Failed to save warning translations`, 'error');
+            }
+          } finally {
+            this.isLoading = false;
+          }
+        },
+
+        findQuestionPage(questionId) {
+          for (let page of this.pages) {
+            if (page.questions) {
+              const found = page.questions.find(q => String(q.id) === String(questionId));
+              if (found) return page;
+            }
+          }
+          return null;
+        },
+
+        updateAvailableQuestionsByPage() {
+          const selectedPageId = this.conditionModal.selectedPageId;
+          const questionId = this.conditionModal.question.id;
+          let availableQuestions = [];
+
+          if (selectedPageId === 'current') {
+            // Show questions from current page only
+            const currentPage = this.findQuestionPage(questionId);
+            if (currentPage && currentPage.questions) {
+              for (let q of currentPage.questions) {
+                if (q.id !== questionId) {
+                  availableQuestions.push({
+                    ...q,
+                    displayText: `(Page ${currentPage.order + 1}) ${q.order + 1}. ${q.text}`
+                  });
+                }
+              }
+            }
+          } else if (selectedPageId === 'all') {
+            // Show questions from all pages
+            for (let page of this.pages) {
+              if (page.questions) {
+                for (let q of page.questions) {
+                  if (q.id !== questionId) {
+                    availableQuestions.push({
+                      ...q,
+                      displayText: `(Page ${page.order + 1}) ${q.order + 1}. ${q.text}`
+                    });
+                  }
+                }
+              }
+            }
+          } else {
+            // Show questions from a specific page
+            const selectedPage = this.pages.find(p => String(p.id) === selectedPageId);
+            if (selectedPage && selectedPage.questions) {
+              for (let q of selectedPage.questions) {
+                if (q.id !== questionId) {
+                  availableQuestions.push({
+                    ...q,
+                    displayText: `(Page ${selectedPage.order + 1}) ${q.order + 1}. ${q.text}`
+                  });
+                }
+              }
+            }
+          }
+
+          // Update available questions and clear the current selection
+          this.conditionModal.availableQuestions = availableQuestions;
+          this.newCondition.target_question_id = '';
+          this.newCondition.value = '';
+          this.conditionModal.showOptionsDropdown = false;
+          this.conditionModal.targetQuestionOptions = [];
+        },
+
+        async updateValueFieldType(targetQuestionId) {
+          if (!targetQuestionId) {
+            this.conditionModal.showOptionsDropdown = false;
+            this.conditionModal.targetQuestionOptions = [];
+            this.newCondition.value = ''; // Clear the value
+            return;
+          }
+          
+          const targetQuestion = this.getQuestionById(targetQuestionId);
+          console.log('Target question:', targetQuestion);
+          
+          // For questions that should have options, ensure we load them if not already loaded
+          if (targetQuestion && ['radio', 'checkbox', 'dropdown'].includes(targetQuestion.type)) {
+            if (!targetQuestion.options || targetQuestion.options.length === 0) {
+              // Try to load options for this question
+              try {
+                const response = await fetch(`/survey/api/question/${targetQuestionId}/details/`);
+                const data = await response.json();
+                if (data.status === 'success' && data.question.options) {
+                  targetQuestion.options = data.question.options;
+                }
+              } catch (error) {
+                console.error('Error loading question options:', error);
+              }
+            }
+          }
+          
+          // Check if question has options by type and if options array exists
+          const hasOptions = targetQuestion &&
+                            ['radio', 'checkbox', 'dropdown'].includes(targetQuestion.type) &&
+                            targetQuestion.options &&
+                            targetQuestion.options.length > 0;
+          
+          console.log('Has options:', hasOptions, 'Type:', targetQuestion?.type, 'Options:', targetQuestion?.options);
+          
+          if (hasOptions) {
+            // Show dropdown for questions with options
+            this.conditionModal.showOptionsDropdown = true;
+            this.conditionModal.targetQuestionOptions = targetQuestion.options;
+            // Set default value to first option if value is empty
+            if (!this.newCondition.value && targetQuestion.options.length > 0) {
+              this.newCondition.value = targetQuestion.options[0].text;
+            }
+          } else {
+            // Show text input for other question types
+            this.conditionModal.showOptionsDropdown = false;
+            this.conditionModal.targetQuestionOptions = [];
+            this.newCondition.value = ''; // Clear the value
+          }
+          
+          console.log('Show dropdown:', this.conditionModal.showOptionsDropdown);
+        },
+        
+        // Call this when modal opens to ensure proper initialization
+        initConditionModal() {
+          if (this.newCondition.target_question_id) {
+            this.updateValueFieldType(this.newCondition.target_question_id);
+          }
+        },
+
+        closeAllModals() {
+          this.showAddQuestion = false;
+          this.showTranslationModal = false;
+          this.showLanguageModal = false;
+          this.showSharingModal = false;
+          this.showSubQuestionsModal = false;
+          this.showSubQuestionOptionsModal = false;
+          this.showBulkTranslateModal = false;
+          this.showConditionModal = false;
+          this.showOptionConditionModal = false;
+          this.showOptionWarningModal = false;
+          this.resetOptionConditionModal();
+          this.resetOptionWarningModal();
+          this.editingValidation = null;
+        },
+
+        async toggleConditionalLogic(questionId, isConditional) {
+          try {
+            const response = await fetch(`/survey/api/question/${questionId}/toggle-conditional/`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+              },
+              body: JSON.stringify({
+                is_conditional: isConditional
+              })
+            });
+
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+              // Update local state
+              const question = this.getQuestionById(questionId);
+              if (question) {
+                question.is_conditional = isConditional;
+              }
+            } else {
+              showAlert(data.message || 'Failed to update conditional logic', 'error');
+            }
+          } catch (error) {
+            console.error('Error toggling conditional logic:', error);
+            showAlert('Failed to update conditional logic', 'error');
+          }
+        },
+
+        isValidNewCondition() {
+          if (!this.newCondition.target_question_id) return false;
+          if (!this.newCondition.condition_type) return false;
+          
+          // For conditions that require a value, check if value is provided
+          if (!['is_empty', 'is_not_empty'].includes(this.newCondition.condition_type)) {
+            return !!this.newCondition.value;
+          }
+          
+          return true;
+        },
+
+        getQuestionText(questionId) {
+          const question = this.getQuestionById(questionId);
+          if (!question) return 'Unknown question';
+
+          // Find which page this question belongs to
+          const page = this.findQuestionPage(questionId);
+          const pageText = page ? `(Page ${page.order + 1}) ` : '';
+
+          return pageText + (question.order + 1) + '. ' + question.text;
+        },
+
+        getConditionDisplay(conditionType) {
+          const conditionMap = {
+            'equals': 'Equals',
+            'not_equals': 'Not Equals',
+            'contains': 'Contains',
+            'not_contains': 'Not Contains',
+            'greater_than': 'Greater Than',
+            'less_than': 'Less Than',
+            'is_empty': 'Is Empty',
+            'is_not_empty': 'Is Not Empty'
+          };
+          return conditionMap[conditionType] || conditionType;
+        },
+
+        async addCondition() {
+          if (!this.isValidNewCondition()) return;
+          
+          this.isLoading = true;
+          
+          try {
+            const response = await fetch(`/survey/api/question/${this.conditionModal.question.id}/add-condition/`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+              },
+              body: JSON.stringify(this.newCondition)
+            });
+
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+              // Add to local state
+              this.conditionModal.conditions.push(data.condition);
+              
+              // Reset form
+              this.newCondition = {
+                target_question_id: '',
+                condition_type: 'equals',
+                value: '',
+                logic_operator: 'AND'
+              };
+            } else {
+              showAlert(data.message || 'Failed to add condition', 'error');
+            }
+          } catch (error) {
+            console.error('Error adding condition:', error);
+            showAlert('Failed to add condition', 'error');
+          } finally {
+            this.isLoading = false;
+          }
+        },
+
+        async deleteCondition(conditionId, index) {
+          if (!confirm('Are you sure you want to delete this condition?')) return;
+          
+          this.isLoading = true;
+          
+          try {
+            const response = await fetch(`/survey/api/condition/${conditionId}/delete/`, {
+              method: 'POST',
+              headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+              }
+            });
+
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+              // Remove from local state
+              this.conditionModal.conditions.splice(index, 1);
+            } else {
+              showAlert(data.message || 'Failed to delete condition', 'error');
+            }
+          } catch (error) {
+            console.error('Error deleting condition:', error);
+            showAlert('Failed to delete condition', 'error');
+          } finally {
+            this.isLoading = false;
+          }
+        },
+        
+        async removeInvitation(invitationId) {
+          if (!confirm('Are you sure you want to remove this user\'s access?')) {
+            return;
+          }
+          
+          try {
+            const response = await fetch(`/survey/api/{{ survey.pk }}/invitations/${invitationId}/remove/`, {
+              method: 'POST',
+              headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+              }
+            });
+            
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+              // Remove from invitations list
+              this.invitations = this.invitations.filter(inv => inv.id !== invitationId);
+            } else {
+              showAlert(data.message || 'Failed to remove user access', 'error');
+            }
+          } catch (error) {
+            console.error('Error removing user access:', error);
+            showAlert('Failed to remove user access', 'error');
+          }
+        },
+        
+        formatDate(dateString) {
+          const date = new Date(dateString);
+          return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        }
+      }
+    }
+    
+    // Handle validation field visibility
+    document.addEventListener('DOMContentLoaded', function() {
+      // Function to toggle validation fields based on question type
+      function toggleValidationFields(questionType) {
+        const textValidation = document.getElementById('text-validation');
+        const numberValidation = document.getElementById('number-validation');
+        
+        if (!textValidation || !numberValidation) return;
+        
+        if (['text', 'textarea', 'email'].includes(questionType)) {
+          textValidation.style.display = 'grid';
+          numberValidation.style.display = 'none';
+        } else if (questionType === 'number') {
+          textValidation.style.display = 'none';
+          numberValidation.style.display = 'grid';
+        } else if (['note', 'consent'].includes(questionType)) {
+          textValidation.style.display = 'none';
+          numberValidation.style.display = 'none';
+        } else {
+          textValidation.style.display = 'none';
+          numberValidation.style.display = 'none';
+        }
+      }
+      
+      // Listen for question type changes in the modal
+      document.addEventListener('change', function(e) {
+        if (e.target && e.target.matches('[x-model="newQuestionType"]')) {
+          toggleValidationFields(e.target.value);
+        }
+      });
+    });
+    
+    // Handle Turbo navigation events
+    document.addEventListener('turbo:before-cache', function() {
+      // Clean up Alpine.js before page is cached
+      if (window.Alpine) {
+        const alpineElements = document.querySelectorAll('[x-data]');
+        alpineElements.forEach(el => {
+          if (el._x_dataStack) {
+            el._x_dataStack = [];
+          }
+        });
+      }
+    });
+    
+    document.addEventListener('turbo:load', function() {
+      // Reinitialize Alpine.js components after Turbo navigation
+      if (window.Alpine && typeof Alpine.initTree === 'function') {
+        Alpine.initTree(document.body);
+      }
+    });
+  </script>
+  <div id="survey-root" class="max-w-6xl mx-auto px-4 sm:px-6 pt-2 pb-6" x-data="surveyBuilder()">
+    <div>
+      <!-- Survey Header -->
+      {% include 'survey/includes/survey_header.html' %}
+      
+      <!-- Page Navigation -->
+      {% include 'survey/includes/page_navigation.html' %}
+      
+      <!-- Floating Action Button -->
+      <div class="fixed bottom-6 right-6 z-50">
+        <button @click="addNewQuestion()"
+                class="w-14 h-14 bg-primary text-primary-foreground rounded-full shadow-lg hover:bg-primary/90 hover:scale-110 transition-all duration-200"
+                title="{% trans "Add Question" %}">
+          <i class="fa fa-plus text-xl"></i>
+        </button>
+      </div>
+      
+      <!-- Questions List -->
+      <div class="space-y-4">
+        <!-- Current Page Header -->
+        {% include 'survey/includes/current_page_header.html' %}
+        
+        <!-- Questions for current page -->
+        <template x-if="currentPage && currentPage.questions && currentPage.questions.length > 0">
+          <div>
+            <template x-for="(question, qIndex) in currentPage.questions"
+                      :key="question.id">
+              {% include 'survey/includes/question_card.html' %}
+            </template>
+          </div>
+        </template>
+      </div>
+      
+      <!-- Empty States -->
+      {% include 'survey/includes/empty_states.html' %}
+    </div>
+
+    <div x-cloak>
+      <!-- All Modal Includes -->
+      {% include 'survey/includes/quick_add_question_modal.html' %}
+      {% include 'survey/includes/validation_rules_modal.html' %}
+      {% include 'survey/includes/hint_edit_modal.html' %}
+      {% include 'survey/includes/language_management_modal.html' %}
+      {% include 'survey/includes/translation_edit_modal.html' %}
+      {% include 'survey/includes/sharing_modal.html' %}
+      {% include 'survey/includes/subquestions_modal.html' %}
+      {% include 'survey/includes/subquestion_options_modal.html' %}
+      {% include 'survey/includes/bulk_translate_modal.html' %}
+      {% include 'survey/includes/conditional_logic_modal.html' %}
+      {% include 'survey/includes/evaluator_condition_modal.html' %}
+      {% include 'survey/includes/option_conditional_logic_modal.html' %}
+      {% include 'survey/includes/option_warning_modal.html' %}
+      {% include 'survey/includes/key_edit_modal.html' %}
+      {% include 'survey/includes/group_edit_modal.html' %}
+
+      <!-- Delete Confirmation Modal -->
+      <div x-show="showDeleteConfirm"
+           x-cloak
+           class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+           @click.self="showDeleteConfirm = false">
+        <div class="bg-card rounded-lg shadow-lg w-full max-w-sm overflow-hidden">
+          <div class="p-5">
+            <div class="flex items-start gap-3">
+              <i class="fa fa-exclamation-triangle text-lg text-destructive mt-0.5"></i>
+              <div>
+                <h3 class="text-base font-semibold text-card-foreground">{% trans "Delete Question" %}</h3>
+                <p class="text-muted-foreground text-sm mt-1">{% trans "Are you sure? This action cannot be undone." %}</p>
+              </div>
+            </div>
+          </div>
+          <div class="flex gap-3 p-4 border-t border-border bg-muted/30">
+            <button @click="showDeleteConfirm = false; deleteQuestionId = null"
+                    class="flex-1 px-4 py-2 border border-border text-card-foreground rounded-lg font-medium hover:bg-accent transition-colors text-sm">
+              {% trans "Cancel" %}
+            </button>
+            <button @click="deleteQuestion(deleteQuestionId)"
+                    class="flex-1 px-4 py-2 bg-destructive text-destructive-foreground rounded-lg font-medium hover:bg-destructive/90 transition-colors text-sm">
+              <i class="fa fa-trash mr-1.5"></i>
+              {% trans "Delete" %}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sortable.js library -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+  </div>
+{% endblock %}

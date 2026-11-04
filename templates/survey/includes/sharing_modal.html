@@ -1,0 +1,234 @@
+<!-- Survey Sharing Modal -->
+<div x-show="showSharingModal" 
+     x-cloak
+     class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+     @click.self="showSharingModal = false">
+  <div class="bg-card rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden"
+       @click.stop
+       x-trap="showSharingModal">
+    
+    <!-- Modal Header -->
+    <div class="px-6 py-4 bg-gradient-to-r from-primary/10 to-accent/10 border-b">
+      <div class="flex items-center justify-between">
+        <h3 class="text-xl font-semibold text-card-foreground">Share Survey</h3>
+        <button @click="showSharingModal = false" 
+                class="text-muted-foreground hover:text-card-foreground p-2 rounded-lg hover:bg-muted transition-colors">
+          <i class="fa fa-times"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Modal Content -->
+    <div class="p-6 max-h-[calc(90vh-8rem)] overflow-y-auto">
+      
+      <!-- Survey Link -->
+      <div class="mb-6">
+        <h4 class="text-lg font-medium text-card-foreground mb-3">Survey Link</h4>
+        <div class="flex items-center gap-2 p-3 bg-muted/30 rounded-lg">
+          <input type="text" 
+                 value="{{ request.build_absolute_uri }}{% url 'survey:survey_form' survey.pk %}"
+                 readonly
+                 class="flex-1 bg-transparent border-none text-sm text-muted-foreground focus:outline-none">
+          <button onclick="copyToClipboard(this.previousElementSibling.value)" 
+                  class="px-3 py-1 bg-primary text-primary-foreground text-sm rounded hover:bg-primary/90">
+            <i class="fa fa-copy"></i>
+            Copy
+          </button>
+        </div>
+        <p class="text-xs text-muted-foreground mt-2">
+          {% if survey.visibility == 'public' %}
+            This survey is public - anyone with this link can respond
+          {% else %}
+            This survey is private - only invited users can respond using this link
+          {% endif %}
+        </p>
+      </div>
+
+      <!-- Survey Visibility Settings -->
+      <div class="mb-6">
+        <h4 class="text-lg font-medium text-card-foreground mb-3">Survey Access</h4>
+        <div class="space-y-3">
+          <div class="flex items-center gap-3 p-3 rounded-lg border">
+            <div class="flex-shrink-0">
+              {% if survey.visibility == 'public' %}
+                <i class="fa fa-globe text-primary"></i>
+              {% else %}
+                <i class="fa fa-lock text-primary"></i>
+              {% endif %}
+            </div>
+            <div class="flex-1">
+              <h5 class="font-medium text-card-foreground">{{ survey.get_visibility_display }}</h5>
+              <p class="text-sm text-muted-foreground">
+                {% if survey.visibility == 'public' %}
+                  Anyone with the link can access and respond to this survey
+                {% else %}
+                  Only invited users can access this survey
+                {% endif %}
+              </p>
+            </div>
+            <div class="flex-shrink-0">
+              <a href="{% url 'survey:survey_edit' survey.pk %}" 
+                 class="text-xs text-primary hover:text-primary/80">
+                Change
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- User Search -->
+      <div class="mb-6">
+        <h4 class="text-lg font-medium text-card-foreground mb-3">Give Users Access</h4>
+        <div class="space-y-4">
+          <!-- Search Input -->
+          <div class="relative">
+            <input type="text" 
+                   x-model="userSearchQuery"
+                   @input="searchUsers()"
+                   placeholder="Search users by name, username, or email..."
+                   class="w-full px-4 py-3 pl-10 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+            <i class="fa fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground"></i>
+          </div>
+
+          <!-- Search Results -->
+          <div x-show="searchResults.length > 0" class="space-y-2 max-h-48 overflow-y-auto">
+            <template x-for="user in searchResults" :key="user.id">
+              <div class="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors">
+                <div class="flex items-center gap-3">
+                  <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                    <i class="fa fa-user text-primary text-sm"></i>
+                  </div>
+                  <div>
+                    <div class="font-medium text-card-foreground" x-text="user.display_name"></div>
+                    <div class="text-sm text-muted-foreground">
+                      <span x-text="user.username"></span>
+                      <span x-show="user.email"> • </span>
+                      <span x-text="user.email" x-show="user.email"></span>
+                    </div>
+                  </div>
+                </div>
+                <button @click="inviteUser(user.id)"
+                        :disabled="isLoading"
+                        class="px-3 py-1 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 text-sm">
+                  <span x-show="!isLoading">Add User</span>
+                  <span x-show="isLoading">
+                    <i class="fa fa-spinner fa-spin"></i>
+                  </span>
+                </button>
+              </div>
+            </template>
+          </div>
+
+          <!-- No Results -->
+          <div x-show="userSearchQuery.length >= 2 && searchResults.length === 0 && !isSearching" 
+               class="text-center py-8 text-muted-foreground">
+            <i class="fa fa-search text-2xl mb-2"></i>
+            <p>No users found matching your search</p>
+          </div>
+
+          <!-- Search Loading -->
+          <div x-show="isSearching" class="text-center py-8 text-muted-foreground">
+            <i class="fa fa-spinner fa-spin text-2xl mb-2"></i>
+            <p>Searching users...</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Current Invitations -->
+      <div class="mb-6">
+        <div class="flex items-center justify-between mb-3">
+          <h4 class="text-lg font-medium text-card-foreground">Users with Access</h4>
+          <button @click="loadInvitations()" 
+                  class="text-sm text-primary hover:text-primary/80">
+            <i class="fa fa-refresh"></i>
+            Refresh
+          </button>
+        </div>
+        
+        <!-- Invitations List -->
+        <div x-show="invitations.length > 0" class="space-y-2 max-h-64 overflow-y-auto">
+          <template x-for="invitation in invitations" :key="invitation.id">
+            <div class="flex items-center justify-between p-3 border rounded-lg">
+              <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                  <i class="fa fa-user text-primary text-sm"></i>
+                </div>
+                <div>
+                  <div class="font-medium text-card-foreground" x-text="invitation.user.display_name"></div>
+                  <div class="text-sm text-muted-foreground">
+                    <span x-text="invitation.user.username"></span>
+                    <span x-show="invitation.user.email"> • </span>
+                    <span x-text="invitation.user.email" x-show="invitation.user.email"></span>
+                  </div>
+                  <div class="text-xs text-muted-foreground mt-1">
+                    Added by <span x-text="invitation.invited_by"></span> • 
+                    <span x-text="formatDate(invitation.invited_at)"></span>
+                  </div>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <!-- Response Status -->
+                <div x-show="invitation.has_responded" 
+                     class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                  <i class="fa fa-check mr-1"></i>
+                  Completed
+                </div>
+                <div x-show="!invitation.has_responded" 
+                     class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                  <i class="fa fa-user mr-1"></i>
+                  Has Access
+                </div>
+                
+                <!-- Remove Button -->
+                <button @click="removeInvitation(invitation.id)"
+                        class="text-destructive hover:text-destructive/80 p-1">
+                  <i class="fa fa-trash text-sm"></i>
+                </button>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <!-- No Invitations -->
+        <div x-show="invitations.length === 0" 
+             class="text-center py-8 text-muted-foreground border rounded-lg">
+          <i class="fa fa-users text-2xl mb-2"></i>
+          <p>No users have access yet</p>
+          <p class="text-sm">Search and add users above to give them access to this survey</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Footer -->
+    <div class="px-6 py-4 bg-muted/30 border-t">
+      <div class="flex items-center justify-end gap-3">
+        <button @click="showSharingModal = false"
+                class="px-4 py-2 text-muted-foreground hover:text-card-foreground transition-colors">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(function() {
+    // Show a temporary success message
+    const button = event.target.closest('button');
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="fa fa-check"></i> Copied!';
+    button.classList.add('bg-green-500');
+    button.classList.remove('bg-primary');
+    
+    setTimeout(() => {
+      button.innerHTML = originalText;
+      button.classList.remove('bg-green-500');
+      button.classList.add('bg-primary');
+    }, 2000);
+  }).catch(function(err) {
+    console.error('Could not copy text: ', err);
+    showAlert('Failed to copy link to clipboard', 'error');
+  });
+}
+</script>

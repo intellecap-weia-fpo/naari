@@ -1,0 +1,35 @@
+{% extends "base_auth.html" %}
+{% load i18n %}
+{% load static %}
+{% block title %}Invitation Declined - {{ site_config.site_name }}{% endblock %}
+{% block main_content %}
+  <div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-md w-full text-center space-y-8">
+      <!-- Icon -->
+      <div class="mx-auto h-20 w-20 bg-muted rounded-2xl flex items-center justify-center">
+        <i class="fa fa-times text-2xl text-muted-foreground"></i>
+      </div>
+      
+      <!-- Message -->
+      <div>
+        <h2 class="text-3xl font-extrabold text-card-foreground">
+          {% trans "Invitation Declined" %}
+        </h2>
+        <p class="mt-4 text-muted-foreground">
+          {% trans "You have declined the invitation to join" %} <strong>{{ invitation.startup.name }}</strong>.
+        </p>
+        <p class="mt-2 text-sm text-muted-foreground">
+          {% trans "If you change your mind, you'll need to ask for a new invitation." %}
+        </p>
+      </div>
+      
+      <!-- Action -->
+      <div>
+        <a href="/" class="inline-flex items-center px-6 py-3 border border-transparent text-sm font-medium rounded-lg text-primary-foreground bg-primary hover:bg-primary/90 transition-colors">
+          <i class="fa fa-home mr-2"></i>
+          {% trans "Go to Homepage" %}
+        </a>
+      </div>
+    </div>
+  </div>
+{% endblock %}

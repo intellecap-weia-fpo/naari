@@ -1,0 +1,123 @@
+{% extends "base_app.html" %}
+{% load i18n %}
+{% load static %}
+{% block title %}Deactivate Project - {{ site_config.site_name }}{% endblock %}
+{% block main_content %}
+  <div class="w-full space-y-5">
+
+    <!-- Single Clean Card -->
+    <div class="bg-card rounded-2xl border border-border overflow-hidden shadow-sm">
+
+      <!-- Header -->
+      <div class="px-5 sm:px-8 py-5 sm:py-6 border-b border-border">
+        <div class="flex items-center gap-3 sm:gap-4">
+          <div class="w-11 h-11 sm:w-12 sm:h-12 bg-destructive/10 rounded-xl flex items-center justify-center flex-shrink-0">
+            <i class="fa fa-trash text-destructive text-base sm:text-lg"></i>
+          </div>
+          <div class="min-w-0">
+            <h1 class="text-lg sm:text-xl font-bold text-card-foreground">{% trans "Deactivate Project" %}</h1>
+            <p class="text-xs sm:text-sm text-muted-foreground mt-0.5">{% trans "This is a soft delete and should finish quickly" %}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Project Info Strip -->
+      <div class="px-5 sm:px-8 py-4 sm:py-5 border-b border-border bg-muted/20">
+        <div class="flex items-center gap-3 sm:gap-4 flex-wrap sm:flex-nowrap">
+          <div class="w-10 h-10 sm:w-11 sm:h-11 bg-gradient-to-br from-primary/10 to-primary/5 rounded-xl flex items-center justify-center ring-1 ring-primary/10 flex-shrink-0">
+            <i class="fa fa-clipboard-list text-lg sm:text-xl text-primary"></i>
+          </div>
+          <div class="min-w-0 flex-1">
+            <h2 class="text-sm sm:text-base font-semibold text-card-foreground break-words">{{ survey.title|default:"Untitled Project" }}</h2>
+            {% if survey.description %}
+              <p class="text-xs sm:text-sm text-muted-foreground mt-0.5 break-words line-clamp-2">{{ survey.description|truncatechars:150 }}</p>
+            {% endif %}
+          </div>
+          <div class="flex flex-wrap items-center gap-1.5 sm:gap-2 flex-shrink-0">
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] sm:text-xs font-medium {% if survey.is_active %}bg-green-500/10 text-green-700{% else %}bg-muted text-muted-foreground{% endif %}">
+              <span class="w-1.5 h-1.5 rounded-full {% if survey.is_active %}bg-green-500{% else %}bg-muted-foreground/40{% endif %}"></span>
+              {% if survey.is_active %}{% trans "Active" %}{% else %}{% trans "Inactive" %}{% endif %}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Content Body -->
+      <div class="px-5 sm:px-8 py-5 sm:py-6 space-y-5 sm:space-y-6">
+
+        <!-- Impact Summary -->
+        <div>
+          <h3 class="text-xs sm:text-sm font-medium text-muted-foreground mb-2.5 sm:mb-3">The following data will stay attached to this inactive project:</h3>
+          <div class="grid grid-cols-3 gap-2 sm:gap-3">
+            <div class="text-center p-2.5 sm:p-3 rounded-xl bg-muted/30 border border-border/50">
+              <div class="text-base sm:text-lg font-bold text-card-foreground">{{ survey.pages.count }}</div>
+              <div class="text-[10px] sm:text-xs text-muted-foreground mt-0.5">Page{{ survey.pages.count|pluralize }}</div>
+            </div>
+            <div class="text-center p-2.5 sm:p-3 rounded-xl bg-muted/30 border border-border/50">
+              <div class="text-base sm:text-lg font-bold text-card-foreground">{{ survey.questions.count }}</div>
+              <div class="text-[10px] sm:text-xs text-muted-foreground mt-0.5">Question{{ survey.questions.count|pluralize }}</div>
+            </div>
+            <div class="text-center p-2.5 sm:p-3 rounded-xl bg-muted/30 border border-border/50">
+              <div class="text-base sm:text-lg font-bold text-card-foreground">All</div>
+              <div class="text-[10px] sm:text-xs text-muted-foreground mt-0.5">Responses kept</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pages List -->
+        {% if survey.pages.exists %}
+          <div>
+            <h3 class="text-xs sm:text-sm font-medium text-muted-foreground mb-2.5 sm:mb-3">Pages:</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5 sm:gap-2">
+              {% for page in survey.pages.all %}
+                <div class="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-muted/20">
+                  <span class="w-5 h-5 bg-primary/10 text-primary rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0">{{ forloop.counter }}</span>
+                  <span class="text-xs sm:text-sm text-card-foreground truncate flex-1">{{ page.title|truncatechars:60|default:"Untitled Page" }}</span>
+                  <span class="text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap flex-shrink-0">{{ page.questions.count }}Q</span>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        {% endif %}
+
+        <!-- Warning -->
+        <div class="bg-destructive/5 border border-destructive/15 rounded-xl p-3 sm:p-4">
+          <div class="flex items-start gap-2.5 sm:gap-3">
+            <i class="fa fa-exclamation-triangle text-destructive text-xs sm:text-sm mt-0.5 flex-shrink-0"></i>
+            <p class="text-xs sm:text-sm text-destructive/90 leading-relaxed">
+              {% trans "This will mark the project inactive so it disappears from active lists, but its pages, questions, options, responses, submission data, indicators, and reports will remain in the database." %}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer Actions -->
+      <form method="post"
+            class="px-5 sm:px-8 py-4 sm:py-5 border-t border-border bg-muted/10"
+            x-data="{ submitting: false }"
+            @submit="submitting = true">
+        {% csrf_token %}
+        <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5 sm:gap-3">
+          <a href="{% url 'survey:survey_list' %}"
+             class="w-full sm:w-auto inline-flex justify-center items-center px-4 sm:px-5 py-2 sm:py-2.5 border border-border rounded-lg text-xs sm:text-sm font-medium text-card-foreground bg-card hover:bg-accent transition-colors">
+            {% trans "Cancel" %}
+          </a>
+          <button type="submit"
+                  :disabled="submitting"
+                  class="w-full sm:w-auto inline-flex justify-center items-center px-4 sm:px-6 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-medium text-white bg-destructive hover:bg-destructive/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-destructive disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                  onclick="return confirm('Are you sure you want to deactivate this project?')">
+            <div x-show="!submitting" class="flex items-center gap-2">
+              <i class="fa fa-trash text-xs sm:text-sm"></i>
+              <span>{% trans "Deactivate Project" %}</span>
+            </div>
+            <div x-show="submitting" class="flex items-center gap-2">
+              <div class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+              <span>{% trans "Deactivating..." %}</span>
+            </div>
+          </button>
+        </div>
+      </form>
+
+    </div>
+  </div>
+{% endblock %}

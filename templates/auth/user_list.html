@@ -1,0 +1,542 @@
+{% extends "base_app.html" %}
+{% load static %}
+{% load i18n %}
+{% block title %}{% trans "User Management" %} - {{ site_config.site_name }}{% endblock %}
+{% block main_content %}
+  <div class="space-y-6">
+    <!-- Essential KPIs -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <!-- Total Users KPI -->
+      <div class="bg-card rounded-lg border border-border p-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="text-2xl font-bold text-card-foreground">{{ total_users }}</div>
+            <div class="text-sm font-medium text-muted-foreground">{% trans "Total Users" %}</div>
+          </div>
+          <div class="w-12 h-12 bg-primary rounded-lg flex items-center justify-center">
+            <i class="fa fa-users text-primary-foreground text-lg"></i>
+          </div>
+        </div>
+      </div>
+      <!-- Active Users KPI -->
+      <div class="bg-card rounded-lg border border-border p-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="text-2xl font-bold text-card-foreground">{{ active_users }}</div>
+            <div class="text-sm font-medium text-muted-foreground">{% trans "Active Users" %}</div>
+          </div>
+          <div class="w-12 h-12 bg-accent rounded-lg flex items-center justify-center">
+            <i class="fa fa-check-circle text-accent-foreground text-lg"></i>
+          </div>
+        </div>
+      </div>
+      <!-- Admin Users KPI -->
+      <div class="bg-card rounded-lg border border-border p-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="text-2xl font-bold text-card-foreground">{{ admin_users }}</div>
+            <div class="text-sm font-medium text-muted-foreground">{% trans "Admin Users" %}</div>
+          </div>
+          <div class="w-12 h-12 bg-secondary rounded-lg flex items-center justify-center">
+            <i class="fa fa-crown text-secondary-foreground text-lg"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Search and Filter Section -->
+    <div class="bg-card rounded-lg border border-border p-6">
+      <div class="space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h2 class="text-lg font-semibold text-card-foreground">{% trans "Users" %}</h2>
+            <p class="text-sm text-muted-foreground">{% trans "Manage and search users" %}</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <!-- Filter Dropdown -->
+            <div class="relative">
+              <button type="button"
+                      id="filter-button"
+                      class="inline-flex items-center gap-2 px-4 py-2 border border-border rounded-lg text-sm font-medium text-card-foreground bg-background hover:bg-accent transition-colors">
+                <i class="fa fa-filter text-xs"></i>
+                {% trans "Filters" %}
+                <span id="filter-count"
+                      class="hidden ml-1 px-1.5 py-0.5 bg-primary text-primary-foreground rounded-full text-xs font-bold">0</span>
+              </button>
+              <div id="filter-dropdown"
+                   class="hidden absolute right-0 mt-2 w-64 bg-card border border-border rounded-lg shadow-lg p-4 z-10">
+                <h3 class="text-sm font-semibold text-card-foreground mb-3">{% trans "Filter by" %}</h3>
+                <div class="space-y-3">
+                  <div>
+                    <label class="text-xs font-medium text-muted-foreground">{% trans "Status" %}</label>
+                    <select id="filter-status" class="form-control mt-1">
+                      <option value="">{% trans "All" %}</option>
+                      <option value="active">{% trans "Active" %}</option>
+                      <option value="inactive">{% trans "Inactive" %}</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="text-xs font-medium text-muted-foreground">{% trans "Role" %}</label>
+                    <select id="filter-role" class="form-control mt-1">
+                      <option value="">{% trans "All" %}</option>
+                      <option value="superuser">{% trans "Super Admin" %}</option>
+                      <option value="staff">{% trans "Staff" %}</option>
+                      <option value="user">{% trans "Standard User" %}</option>
+                    </select>
+                  </div>
+                  <div class="flex gap-2 pt-2">
+                    <button type="button"
+                            onclick="applyFilters()"
+                            class="flex-1 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
+                      {% trans "Apply" %}
+                    </button>
+                    <button type="button"
+                            onclick="clearFilters()"
+                            class="flex-1 px-3 py-1.5 border border-border rounded-lg text-sm font-medium text-card-foreground hover:bg-accent transition-colors">
+                      {% trans "Reset" %}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="sm:w-full">
+          <form method="get" class="flex gap-2">
+            <div class="relative flex-1">
+              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <i class="fa fa-search text-muted-foreground text-sm"></i>
+              </div>
+              <input type="text"
+                     name="search"
+                     id="search"
+                     value="{{ search_query }}"
+                     class="form-control pl-10 pr-4"
+                     placeholder="{% trans "Search by name, username, or email..." %}">
+            </div>
+            <button type="submit"
+                    class="inline-flex items-center px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
+              {% trans "Search" %}
+            </button>
+            {% if search_query %}
+              <a href="{% url 'management:user_list' %}"
+                 class="inline-flex items-center px-4 py-2 border border-border rounded-lg text-sm font-medium text-card-foreground bg-background hover:bg-accent transition-colors">
+                {% trans "Clear" %}
+              </a>
+            {% endif %}
+          </form>
+        </div>
+      </div>
+    </div>
+    <!-- Users Data Table -->
+    <div class="bg-card rounded-2xl overflow-hidden shadow-sm">
+      <!-- Table Container -->
+      <div class="overflow-hidden">
+        <table class="min-w-full">
+          <thead>
+            <tr class="border-b border-border">
+              <th class="px-6 py-5 text-left">
+                <button type="button"
+                        class="group flex items-center gap-2 text-sm font-semibold text-card-foreground hover:text-primary transition-colors"
+                        onclick="sortTable('name')">
+                  {% trans "User Details" %}
+                  <span class="sort-indicator opacity-0 group-hover:opacity-100 transition-opacity">
+                    <i class="fa fa-sort text-xs text-muted-foreground"></i>
+                  </span>
+                </button>
+              </th>
+              <th class="px-6 py-5 text-left">
+                <button type="button"
+                        class="group flex items-center gap-2 text-sm font-semibold text-card-foreground hover:text-primary transition-colors"
+                        onclick="sortTable('email')">
+                  {% trans "Contact Info" %}
+                  <span class="sort-indicator opacity-0 group-hover:opacity-100 transition-opacity">
+                    <i class="fa fa-sort text-xs text-muted-foreground"></i>
+                  </span>
+                </button>
+              </th>
+              <th class="px-6 py-5 text-left">
+                <button type="button"
+                        class="group flex items-center gap-2 text-sm font-semibold text-card-foreground hover:text-primary transition-colors"
+                        onclick="sortTable('status')">
+                  {% trans "Status" %}
+                  <span class="sort-indicator opacity-0 group-hover:opacity-100 transition-opacity">
+                    <i class="fa fa-sort text-xs text-muted-foreground"></i>
+                  </span>
+                </button>
+              </th>
+              <th class="px-6 py-5 text-left">
+                <button type="button"
+                        class="group flex items-center gap-2 text-sm font-semibold text-card-foreground hover:text-primary transition-colors"
+                        onclick="sortTable('role')">
+                  {% trans "Access Level" %}
+                  <span class="sort-indicator opacity-0 group-hover:opacity-100 transition-opacity">
+                    <i class="fa fa-sort text-xs text-muted-foreground"></i>
+                  </span>
+                </button>
+              </th>
+              <th class="px-6 py-5 text-left">
+                <button type="button"
+                        class="group flex items-center gap-2 text-sm font-semibold text-card-foreground hover:text-primary transition-colors"
+                        onclick="sortTable('date')">
+                  {% trans "Activity" %}
+                  <span class="sort-indicator opacity-0 group-hover:opacity-100 transition-opacity">
+                    <i class="fa fa-sort text-xs text-muted-foreground"></i>
+                  </span>
+                </button>
+              </th>
+              <th class="px-6 py-5 text-right text-sm font-semibold text-card-foreground">{% trans "Actions" %}</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-border">
+            {% for user in page_obj %}
+              <tr class="group hover:bg-muted/5 transition-all duration-200">
+                <!-- User Info -->
+                <td class="px-6 py-5">
+                  <div class="flex items-center gap-3">
+                    <div class="relative">
+                        {% if user.profile.profile_image %}
+                          <div class="w-12 h-12 rounded-xl overflow-hidden ring-2 ring-primary/10 group-hover:ring-primary/20 transition-all duration-200">
+                            <img src="{{ user.profile.profile_image.url }}"
+                                 alt="{{ user.get_full_name|default:user.username }}"
+                                 class="w-full h-full object-cover">
+                          </div>
+                        {% else %}
+                          <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center ring-2 ring-primary/10 group-hover:ring-primary/20 transition-all duration-200">
+                            <span class="text-base font-bold text-primary">
+                              {% if user.get_full_name %}
+                                {{ user.get_full_name|slice:":1"|upper }}
+                              {% else %}
+                                {{ user.username|slice:":1"|upper }}
+                              {% endif %}
+                            </span>
+                          </div>
+                        {% endif %}
+                        {% if user.is_active %}
+                          <div class="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-card"></div>
+                        {% endif %}
+                    </div>
+                    <div class="min-w-0">
+                        <a href="{% url 'management:user_detail' user.id %}"
+                           class="block hover:no-underline">
+                          <p class="font-semibold text-card-foreground group-hover:text-primary transition-colors truncate">
+                            {{ user.get_full_name|default:user.username }}
+                          </p>
+                          <p class="text-sm text-muted-foreground truncate">@{{ user.username }}</p>
+                        </a>
+                    </div>
+                  </div>
+                </td>
+                <!-- Contact Info -->
+                <td class="px-6 py-5">
+                  {% if user.email %}
+                    <div class="space-y-1">
+                      <div class="flex items-center gap-2">
+                        <i class="fa fa-envelope text-muted-foreground text-xs"></i>
+                        <span class="text-sm text-card-foreground font-medium">{{ user.email }}</span>
+                      </div>
+                      <div class="flex items-center gap-1.5">
+                        <div class="w-2 h-2 rounded-full bg-green-500"></div>
+                        <span class="text-xs text-muted-foreground">{% trans "Email verified" %}</span>
+                      </div>
+                    </div>
+                  {% else %}
+                    <div class="flex items-center gap-2">
+                      <i class="fa fa-envelope text-muted-foreground/40 text-xs"></i>
+                      <span class="text-sm text-muted-foreground italic">{% trans "No email provided" %}</span>
+                    </div>
+                  {% endif %}
+                </td>
+                <!-- Status -->
+                <td class="px-6 py-5">
+                  {% if user.is_active %}
+                    <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-green-500/10 border border-green-500/20">
+                      <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                      <span class="text-sm font-medium text-green-700">{% trans "Active" %}</span>
+                    </div>
+                  {% else %}
+                    <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/50 border border-border">
+                      <div class="w-2 h-2 rounded-full bg-muted-foreground/30"></div>
+                      <span class="text-sm font-medium text-muted-foreground">{% trans "Inactive" %}</span>
+                    </div>
+                  {% endif %}
+                </td>
+                <!-- Role -->
+                <td class="px-6 py-5">
+                  {% if user.is_superuser %}
+                    <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20">
+                      <i class="fa fa-crown text-xs text-primary"></i>
+                      <span class="text-sm font-medium text-card-foreground">{% trans "Super Admin" %}</span>
+                    </div>
+                  {% elif user.is_staff %}
+                    <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                      <i class="fa fa-clipboard-check text-xs text-blue-600"></i>
+                      <span class="text-sm font-medium text-blue-700">{% trans "Staff" %}</span>
+                    </div>
+                  {% else %}
+                    <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/50 border border-border">
+                      <i class="fa fa-user text-xs text-muted-foreground"></i>
+                      <span class="text-sm font-medium text-muted-foreground">{% trans "Standard User" %}</span>
+                    </div>
+                  {% endif %}
+                </td>
+                <!-- Last Active -->
+                <td class="px-6 py-5">
+                  <div class="space-y-1">
+                    <div class="flex items-center gap-2">
+                      <i class="fa fa-calendar text-muted-foreground text-xs"></i>
+                      <span class="text-sm font-medium text-card-foreground">{{ user.date_joined|date:"M d, Y" }}</span>
+                    </div>
+                    <div class="text-xs text-muted-foreground pl-5">{{ user.date_joined|timesince }} ago</div>
+                  </div>
+                </td>
+                <!-- Actions -->
+                <td class="px-6 py-5">
+                  <div class="flex items-center justify-end gap-2">
+                    <a href="{% url 'management:user_edit' user.id %}"
+                       class="inline-flex items-center justify-center w-9 h-9 text-muted-foreground hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200"
+                       title="{% trans 'Edit user' %}">
+                      <i class="fa fa-edit text-sm"></i>
+                    </a>
+                    <button type="button"
+                            class="delete-user-btn inline-flex items-center justify-center w-9 h-9 text-muted-foreground hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
+                            data-username="{{ user.username }}" data-user-id="{{ user.id }}"
+                            title="{% trans 'Delete user' %}">
+                      <i class="fa fa-trash text-sm"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="6" class="px-6 py-20 text-center">
+                  <div class="max-w-md mx-auto space-y-6">
+                    <div class="mx-auto w-20 h-20 bg-gradient-to-br from-muted to-muted/50 rounded-2xl flex items-center justify-center shadow-inner">
+                      <i class="fa fa-users text-2xl text-muted-foreground/50"></i>
+                    </div>
+                    <div class="space-y-2">
+                      <h3 class="text-xl font-bold text-card-foreground">
+                        {% if search_query %}
+                          {% trans "No Results Found" %}
+                        {% else %}
+                          {% trans "Start Building Your Team" %}
+                        {% endif %}
+                      </h3>
+                      <p class="text-muted-foreground leading-relaxed">
+                        {% if search_query %}
+                          {% trans "We couldn't find any users matching" %} "<span class="font-semibold text-primary">{{ search_query }}</span>". {% trans "Try different search terms or clear the filter." %}
+                        {% else %}
+                          {% trans "Add your first user to get started. You can invite team members, assign roles, and manage permissions." %}
+                        {% endif %}
+                      </p>
+                    </div>
+                    {% if not search_query %}
+                      <div class="flex justify-center pt-2">
+                        <a href="{% url 'management:user_create' %}"
+                           class="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-xl text-sm font-semibold hover:bg-primary/90 transition-all duration-200 shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 hover:-translate-y-0.5">
+                          <i class="fa fa-plus text-sm"></i>
+                          {% trans "Create Your First User" %}
+                        </a>
+                      </div>
+                    {% endif %}
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <!-- Enhanced Pagination -->
+      {% if page_obj.has_other_pages %}
+        <div class="bg-gradient-to-r from-muted/10 to-muted/5 px-6 py-5 border-t border-border">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div class="flex items-center gap-2">
+              <div class="w-2 h-2 rounded-full bg-primary"></div>
+              <p class="text-sm text-muted-foreground">
+                {% trans "Displaying" %} <span class="font-semibold text-card-foreground">{{ page_obj.start_index }}-{{ page_obj.end_index }}</span>
+                {% trans "of" %} <span class="font-semibold text-card-foreground">{{ page_obj.paginator.count }}</span> {% trans "total users" %}
+              </p>
+            </div>
+            <nav class="flex items-center gap-2">
+              {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}"
+                   class="inline-flex items-center justify-center w-10 h-10 rounded-lg border border-border bg-background hover:bg-muted hover:border-muted-foreground/20 transition-all duration-200 group">
+                  <i class="fa fa-chevron-left text-xs text-muted-foreground group-hover:text-card-foreground"></i>
+                </a>
+              {% else %}
+                <div class="inline-flex items-center justify-center w-10 h-10 rounded-lg border border-border/50 bg-muted/20 cursor-not-allowed opacity-50">
+                  <i class="fa fa-chevron-left text-xs text-muted-foreground"></i>
+                </div>
+              {% endif %}
+              <div class="hidden sm:flex items-center gap-1">
+                {% for num in page_obj.paginator.page_range %}
+                  {% if page_obj.number == num %}
+                    <span class="inline-flex items-center justify-center min-w-[2.5rem] h-10 px-3 rounded-lg bg-primary text-primary-foreground text-sm font-semibold shadow-sm">
+                      {{ num }}
+                    </span>
+                  {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                    <a href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}"
+                       class="inline-flex items-center justify-center min-w-[2.5rem] h-10 px-3 rounded-lg border border-transparent hover:border-border bg-transparent hover:bg-muted text-sm font-medium text-muted-foreground hover:text-card-foreground transition-all duration-200">
+                      {{ num }}
+                    </a>
+                  {% elif num == 1 or num == page_obj.paginator.num_pages %}
+                    <a href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}"
+                       class="inline-flex items-center justify-center min-w-[2.5rem] h-10 px-3 rounded-lg border border-transparent hover:border-border bg-transparent hover:bg-muted text-sm font-medium text-muted-foreground hover:text-card-foreground transition-all duration-200">
+                      {{ num }}
+                    </a>
+                  {% elif num == page_obj.number|add:'-4' or num == page_obj.number|add:'4' %}
+                    <span class="inline-flex items-center justify-center min-w-[2.5rem] h-10 text-sm text-muted-foreground/50">•••</span>
+                  {% endif %}
+                {% endfor %}
+              </div>
+              {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}"
+                   class="inline-flex items-center justify-center w-10 h-10 rounded-lg border border-border bg-background hover:bg-muted hover:border-muted-foreground/20 transition-all duration-200 group">
+                  <i class="fa fa-chevron-right text-xs text-muted-foreground group-hover:text-card-foreground"></i>
+                </a>
+              {% else %}
+                <div class="inline-flex items-center justify-center w-10 h-10 rounded-lg border border-border/50 bg-muted/20 cursor-not-allowed opacity-50">
+                  <i class="fa fa-chevron-right text-xs text-muted-foreground"></i>
+                </div>
+              {% endif %}
+            </nav>
+          </div>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+  <script>
+      // Table functionality
+      function initializeUserListFunctionality() {
+          const filterButton = document.getElementById('filter-button');
+          const filterDropdown = document.getElementById('filter-dropdown');
+          const filterCount = document.getElementById('filter-count');
+
+          // Filter dropdown toggle
+          filterButton?.addEventListener('click', function(e) {
+              e.stopPropagation();
+              filterDropdown.classList.toggle('hidden');
+          });
+
+          // Close filter dropdown when clicking outside
+          function handleClickOutside(e) {
+              if (!filterButton?.contains(e.target) && !filterDropdown?.contains(e.target)) {
+                  filterDropdown?.classList.add('hidden');
+              }
+          }
+
+          // Remove existing event listener before adding new one
+          document.removeEventListener('click', handleClickOutside);
+          document.addEventListener('click', handleClickOutside);
+      }
+
+      // Delete user button functionality using event delegation
+      document.addEventListener('click', function(e) {
+          // Handle delete user button clicks
+          if (e.target.closest('.delete-user-btn')) {
+              e.preventDefault();
+              e.stopPropagation();
+              const btn = e.target.closest('.delete-user-btn');
+              const username = btn.getAttribute('data-username');
+              const userId = btn.getAttribute('data-user-id');
+              confirmDeleteUser(username, userId);
+          }
+      });
+
+      // Initialize on DOMContentLoaded
+      document.addEventListener('DOMContentLoaded', initializeUserListFunctionality);
+
+      // Re-initialize on Turbo navigation
+      document.addEventListener('turbo:load', initializeUserListFunctionality);
+
+      // Global functions
+      window.confirmDeleteUser = function(username, userId) {
+          if (confirm(`Are you sure you want to delete user "${username}"? This action cannot be undone.`)) {
+              window.location.href = `/manage/users/${userId}/delete/`;
+          }
+      }
+
+      // Sorting functionality - Turbo compatible
+      let sortOrder = {};
+      window.sortTable = function(column) {
+          // Toggle sort order
+          sortOrder[column] = sortOrder[column] === 'asc' ? 'desc' : 'asc';
+
+          // Get current URL parameters
+          const url = new URL(window.location);
+          url.searchParams.set('sort', column);
+          url.searchParams.set('order', sortOrder[column]);
+
+          // Use Turbo.visit for navigation
+          if (typeof Turbo !== 'undefined') {
+              Turbo.visit(url.toString());
+          } else {
+              window.location.href = url.toString();
+          }
+      }
+
+      // Filter functionality - Turbo compatible
+      window.applyFilters = function() {
+          const status = document.getElementById('filter-status').value;
+          const role = document.getElementById('filter-role').value;
+          const url = new URL(window.location);
+
+          if (status) url.searchParams.set('status', status);
+          else url.searchParams.delete('status');
+
+          if (role) url.searchParams.set('role', role);
+          else url.searchParams.delete('role');
+
+          // Use Turbo.visit for navigation
+          if (typeof Turbo !== 'undefined') {
+              Turbo.visit(url.toString());
+          } else {
+              window.location.href = url.toString();
+          }
+      }
+
+      window.clearFilters = function() {
+          const url = new URL(window.location);
+          url.searchParams.delete('status');
+          url.searchParams.delete('role');
+
+          // Use Turbo.visit for navigation
+          if (typeof Turbo !== 'undefined') {
+              Turbo.visit(url.toString());
+          } else {
+              window.location.href = url.toString();
+          }
+      }
+
+      // Update filter count on page load and Turbo navigation
+      function updateFilterCount() {
+          const params = new URLSearchParams(window.location.search);
+          let filterActiveCount = 0;
+
+          const statusFilter = document.getElementById('filter-status');
+          const roleFilter = document.getElementById('filter-role');
+
+          if (params.get('status') && statusFilter) {
+              statusFilter.value = params.get('status');
+              filterActiveCount++;
+          }
+          if (params.get('role') && roleFilter) {
+              roleFilter.value = params.get('role');
+              filterActiveCount++;
+          }
+
+          const filterCountEl = document.getElementById('filter-count');
+          if (filterCountEl) {
+              if (filterActiveCount > 0) {
+                  filterCountEl.textContent = filterActiveCount.toString();
+                  filterCountEl.classList.remove('hidden');
+              } else {
+                  filterCountEl.classList.add('hidden');
+              }
+          }
+      }
+
+      // Initialize filter count on both initial load and Turbo navigation
+      document.addEventListener('DOMContentLoaded', updateFilterCount);
+      document.addEventListener('turbo:load', updateFilterCount);
+  </script>
+{% endblock %}

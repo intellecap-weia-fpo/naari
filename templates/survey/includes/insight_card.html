@@ -1,0 +1,12 @@
+{% load i18n %}
+{# Single insight card — severity-coded, with performance meter and iconed sections.
+   Expects: insight (SurveyInsight). #}
+{% with pct=insight.poor_performance_pct %}
+  {% if pct >= 75 %}
+    {% include "survey/includes/_insight_card_body.html" with pct=pct sev_label="Critical" sev_icon="fa-exclamation-triangle" sev_color="#dc2626" sev_bg="#fef2f2" sev_border="#fecaca" %}
+  {% elif pct >= 60 %}
+    {% include "survey/includes/_insight_card_body.html" with pct=pct sev_label="High" sev_icon="fa-exclamation-circle" sev_color="#ea580c" sev_bg="#fff7ed" sev_border="#fed7aa" %}
+  {% else %}
+    {% include "survey/includes/_insight_card_body.html" with pct=pct sev_label="Moderate" sev_icon="fa-info-circle" sev_color="#ca8a04" sev_bg="#fefce8" sev_border="#fde68a" %}
+  {% endif %}
+{% endwith %}

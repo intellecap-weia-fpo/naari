@@ -1,0 +1,111 @@
+{% load i18n %}
+<!-- Translation Edit Modal -->
+<div x-show="showTranslationModal"
+     x-transition:enter="transition ease-out duration-300"
+     x-transition:enter-start="opacity-0"
+     x-transition:enter-end="opacity-100"
+     x-transition:leave="transition ease-in duration-200"
+     x-transition:leave-start="opacity-100"
+     x-transition:leave-end="opacity-0"
+     class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+     @click.self="showTranslationModal = false">
+  <div class="bg-card rounded-lg p-6 w-full max-w-2xl mx-4 border border-border max-h-[80vh] overflow-y-auto"
+       x-data="{ bulkMode: false }"
+       @click.stop
+       x-trap="showTranslationModal">
+    <div>
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-semibold text-card-foreground">
+          {% trans "Edit Translations" %}
+        </h3>
+        <div class="text-sm text-muted-foreground">
+          {% trans "Edit translations for all languages" %}
+        </div>
+      </div>
+
+      <div class="space-y-4">
+        <!-- Page Translation (Title and Description) -->
+        <div x-show="translationModal.type === 'page'">
+          <div class="space-y-3">
+            <div>
+              <label class="block text-sm font-medium mb-2 text-card-foreground">{% trans "Original Title" %}</label>
+              <div class="p-3 bg-muted/30 rounded border text-sm text-muted-foreground"
+                   x-text="(translationModal || {}).originalTitle"></div>
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-2 text-card-foreground">{% trans "Original Description" %}</label>
+              <div class="p-3 bg-muted/30 rounded border text-sm text-muted-foreground"
+                   x-text="(translationModal || {}).originalDescription || '{% trans "No description" %}'"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Regular Translation (Single Text) -->
+        <div x-show="translationModal.type !== 'page'">
+          <label class="block text-sm font-medium mb-2 text-card-foreground">{% trans "Original Text" %}</label>
+          <div class="p-3 bg-muted/30 rounded border text-sm text-muted-foreground"
+               x-text="(translationModal || {}).originalText"></div>
+        </div>
+
+        <!-- All Languages Translation -->
+        <div>
+          <label class="block text-sm font-medium mb-3 text-card-foreground">{% trans "Translations" %}</label>
+          <div class="space-y-3">
+            <template x-for="lang in availableLanguages.filter(l => l.code !== '{{ survey.default_language }}')"
+                      :key="lang.code">
+              <div>
+                <label class="block text-xs font-medium mb-1 text-card-foreground"
+                       x-text="lang.name + ' (' + lang.code + ')'"></label>
+                
+                <!-- Page Translation Fields -->
+                <div x-show="translationModal.type === 'page'" class="space-y-2">
+                  <input type="text" 
+                         :value="translationModal.bulkTranslations[lang.code]?.title || ''"
+                         @input="if (!translationModal.bulkTranslations[lang.code]) { translationModal.bulkTranslations[lang.code] = {} }; translationModal.bulkTranslations[lang.code].title = $event.target.value"
+                         class="form-control text-sm"
+                         :placeholder="'{% trans "Enter title translation in" %} ' + lang.name">
+                  <textarea :value="translationModal.bulkTranslations[lang.code]?.description || ''"
+                            @input="if (!translationModal.bulkTranslations[lang.code]) { translationModal.bulkTranslations[lang.code] = {} }; translationModal.bulkTranslations[lang.code].description = $event.target.value"
+                            class="form-control text-sm"
+                            rows="2"
+                            :placeholder="'{% trans "Enter description translation in" %} ' + lang.name"></textarea>
+                </div>
+                
+                <!-- Regular Translation Field -->
+                <div x-show="translationModal.type !== 'page'">
+                  <textarea :value="translationModal.bulkTranslations[lang.code] || ''"
+                            @input="translationModal.bulkTranslations[lang.code] = $event.target.value"
+                            class="form-control text-sm"
+                            rows="2"
+                            :placeholder="'{% trans "Enter translation in" %} ' + lang.name"></textarea>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <div class="flex gap-3 pt-4 border-t border-border">
+          <button @click="autoTranslateAll()"
+                  :disabled="isLoading || (!translationModal.originalText && !translationModal.originalTitle)"
+                  class="px-4 py-2 bg-secondary text-secondary-foreground rounded-lg font-medium hover:bg-secondary/90 transition-colors disabled:opacity-50"
+                  title="{% trans "Auto-translate to all languages using AI" %}">
+            <span x-show="!isLoading">{% trans "Auto Translate" %}</span>
+            <span x-show="isLoading">{% trans "Translating..." %}</span>
+          </button>
+          
+          <button @click="saveBulkTranslations()"
+                  :disabled="isLoading"
+                  class="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors disabled:opacity-50">
+            <span x-show="!isLoading">{% trans "Save All Translations" %}</span>
+            <span x-show="isLoading">{% trans "Saving..." %}</span>
+          </button>
+
+          <button @click="showTranslationModal = false"
+                  class="px-4 py-2 border border-border rounded-lg font-medium hover:bg-accent transition-colors text-card-foreground">
+            {% trans "Cancel" %}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

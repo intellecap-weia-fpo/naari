@@ -1,0 +1,47 @@
+{% extends "base_auth.html" %}
+{% load i18n %}
+{% load static %}
+{% block title %}Invitation Error - {{ site_config.site_name }}{% endblock %}
+{% block main_content %}
+  <div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-md w-full text-center space-y-8">
+      <!-- Icon -->
+      <div class="mx-auto h-20 w-20 bg-destructive/10 rounded-2xl flex items-center justify-center">
+        <i class="fa fa-exclamation-triangle text-2xl text-destructive"></i>
+      </div>
+      
+      <!-- Message -->
+      <div>
+        <h2 class="text-3xl font-extrabold text-card-foreground">
+          {% trans "Invitation Error" %}
+        </h2>
+        <p class="mt-4 text-muted-foreground">
+          {{ error }}
+        </p>
+        
+        {% if invitation %}
+          <div class="mt-6 bg-card border border-border rounded-lg p-4">
+            <h3 class="text-sm font-medium text-card-foreground mb-2">{% trans "Invitation Details" %}</h3>
+            <div class="text-sm text-muted-foreground space-y-1">
+              <p><strong>Startup:</strong> {{ invitation.startup.name }}</p>
+              <p><strong>Invited on:</strong> {{ invitation.invited_at|date:"F d, Y" }}</p>
+              <p><strong>Expired on:</strong> {{ invitation.expires_at|date:"F d, Y" }}</p>
+              <p><strong>Status:</strong> {{ invitation.get_status_display }}</p>
+            </div>
+          </div>
+        {% endif %}
+      </div>
+      
+      <!-- Actions -->
+      <div class="space-y-3">
+        <p class="text-sm text-muted-foreground">
+          {% trans "If you believe this is an error, please contact the person who sent you this invitation." %}
+        </p>
+        <a href="/" class="inline-flex items-center px-6 py-3 border border-transparent text-sm font-medium rounded-lg text-primary-foreground bg-primary hover:bg-primary/90 transition-colors">
+          <i class="fa fa-home mr-2"></i>
+          {% trans "Go to Homepage" %}
+        </a>
+      </div>
+    </div>
+  </div>
+{% endblock %}

@@ -1,0 +1,392 @@
+{% extends "base_app.html" %}
+{% load i18n %}
+{% load static %}
+{% block title %}{% trans "Project Management" %} - {{ site_config.site_name }}{% endblock %}
+{% block main_content %}
+  <div class="space-y-6" x-data="{ deleteModal: { open: false, title: '', url: '' }, openDeleteModal(title, url) { this.deleteModal = { open: true, title: title, url: url }; }, closeDeleteModal() { this.deleteModal.open = false; } }">
+    <!-- Essential KPIs -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <!-- Total Surveys KPI -->
+      <div class="bg-card rounded-lg border border-border p-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="text-2xl font-bold text-card-foreground">{{ page_obj.paginator.count }}</div>
+            <div class="text-sm font-medium text-muted-foreground">{% trans "Total Projects" %}</div>
+          </div>
+          <div class="w-12 h-12 bg-primary rounded-lg flex items-center justify-center">
+            <i class="fa fa-clipboard-list text-primary-foreground text-xl"></i>
+          </div>
+        </div>
+      </div>
+      <!-- Active Surveys KPI -->
+      <div class="bg-card rounded-lg border border-border p-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="text-2xl font-bold text-card-foreground">{{ page_obj.object_list|length }}</div>
+            <div class="text-sm font-medium text-muted-foreground">{% trans "Active Projects" %}</div>
+          </div>
+          <div class="w-12 h-12 bg-accent rounded-lg flex items-center justify-center">
+            <i class="fa fa-check-circle text-accent-foreground text-lg"></i>
+          </div>
+        </div>
+      </div>
+      <!-- My Surveys KPI -->
+      <div class="bg-card rounded-lg border border-border p-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="text-2xl font-bold text-card-foreground">{{ page_obj.object_list|length }}</div>
+            <div class="text-sm font-medium text-muted-foreground">{% trans "My Projects" %}</div>
+          </div>
+          <div class="w-12 h-12 bg-secondary rounded-lg flex items-center justify-center">
+            <i class="fa fa-user-edit text-secondary-foreground text-lg"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Search and Filter Section -->
+    <div class="bg-card rounded-lg border border-border p-6">
+      <div class="space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h2 class="text-lg font-semibold text-card-foreground">{% trans "Projects" %}</h2>
+            <p class="text-sm text-muted-foreground">{% trans "Create and manage your projects" %}</p>
+          </div>
+          <div class="flex items-center gap-3">
+            <!-- Status Filter Tabs -->
+            <div class="inline-flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200 shadow-sm">
+              <a href="{% url 'survey:survey_list' %}{% if search_query %}?search={{ search_query }}{% endif %}"
+                 class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all {% if not status %}bg-primary text-white shadow-sm{% else %}text-slate-500 hover:text-slate-700{% endif %}">
+                {% trans "All" %}
+              </a>
+              <a href="{% url 'survey:survey_list' %}?status=active{% if search_query %}&search={{ search_query }}{% endif %}"
+                 class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all {% if status == 'active' %}bg-primary text-white shadow-sm{% else %}text-slate-500 hover:text-slate-700{% endif %}">
+                <span class="w-2 h-2 rounded-full {% if status == 'active' %}bg-white{% else %}bg-emerald-500{% endif %}"></span>
+                {% trans "Active" %}
+              </a>
+              <a href="{% url 'survey:survey_list' %}?status=inactive{% if search_query %}&search={{ search_query }}{% endif %}"
+                 class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all {% if status == 'inactive' %}bg-primary text-white shadow-sm{% else %}text-slate-500 hover:text-slate-700{% endif %}">
+                <span class="w-2 h-2 rounded-full {% if status == 'inactive' %}bg-white{% else %}bg-slate-400{% endif %}"></span>
+                {% trans "Inactive" %}
+              </a>
+            </div>
+            {% if is_admin %}{% if not is_partner_user %}
+            <a href="{% url 'survey:survey_create' %}"
+               class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
+              <i class="fa fa-plus text-xs"></i>
+              {% trans "Create Project" %}
+            </a>
+            {% endif %}{% endif %}
+          </div>
+        </div>
+        <div class="sm:w-full">
+          <form method="get" class="flex gap-2">
+            <div class="relative flex-1">
+              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <i class="fa fa-search text-muted-foreground text-sm"></i>
+              </div>
+              <input type="text"
+                     name="search"
+                     id="search"
+                     value="{{ search_query }}"
+                     class="form-control pl-10 pr-4"
+                     placeholder="{% trans "Search by title or description..." %}">
+              {% if status %}<input type="hidden" name="status" value="{{ status }}">{% endif %}
+            </div>
+            <button type="submit"
+                    class="inline-flex items-center px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
+              {% trans "Search" %}
+            </button>
+            {% if search_query %}
+              <a href="{% url 'survey:survey_list' %}{% if status %}?status={{ status }}{% endif %}"
+                 class="inline-flex items-center px-4 py-2 border border-border rounded-lg text-sm font-medium text-card-foreground bg-background hover:bg-accent transition-colors">
+                {% trans "Clear" %}
+              </a>
+            {% endif %}
+          </form>
+        </div>
+      </div>
+    </div>
+    <!-- Surveys Data Table -->
+    <div class="bg-card rounded-2xl overflow-hidden shadow-sm">
+      <!-- Table Container -->
+      <div class="overflow-x-auto">
+        <table class="min-w-full">
+          <thead>
+            <tr class="border-b border-border">
+              <th class="px-6 py-5 text-left">
+                <div class="flex items-center gap-3">
+                  <span class="text-sm font-semibold text-card-foreground">{% trans "Project Details" %}</span>
+                </div>
+              </th>
+              <th class="px-6 py-5 text-left">
+                <span class="text-sm font-semibold text-card-foreground">{% trans "Status" %}</span>
+              </th>
+              <th class="px-6 py-5 text-left">
+                <span class="text-sm font-semibold text-card-foreground">{% trans "Created" %}</span>
+              </th>
+              <th class="px-6 py-5 text-left">
+                <span class="text-sm font-semibold text-card-foreground">{% trans "Submissions" %}</span>
+              </th>
+              <th class="px-6 py-5 text-right text-sm font-semibold text-card-foreground">{% trans "Actions" %}</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-border">
+            {% for survey in page_obj %}
+              <tr class="group hover:bg-muted/5 transition-all duration-200">
+                <!-- Survey Info -->
+                <td class="px-6 py-5">
+                  <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center ring-2 ring-primary/10 group-hover:ring-primary/20 transition-all duration-200">
+                      <i class="fa fa-clipboard-list text-lg text-primary"></i>
+                    </div>
+                    <div class="min-w-0 flex-1">
+                      <a href="{% url 'survey:survey_detail' survey.pk %}"
+                         class="block hover:no-underline">
+                        <p class="font-semibold text-card-foreground group-hover:text-primary transition-colors truncate">
+                          {{ survey.title }}
+                        </p>
+                        {% if survey.description %}
+                          <p class="text-sm text-muted-foreground truncate">{{ survey.description|truncatechars:60 }}</p>
+                        {% else %}
+                          <p class="text-sm text-muted-foreground italic">{% trans "No description" %}</p>
+                        {% endif %}
+                      </a>
+                    </div>
+                  </div>
+                </td>
+                <!-- Status -->
+                <td class="px-6 py-5">
+                  {% if survey.is_active %}
+                    <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-green-500/10 border border-green-500/20">
+                      <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                      <span class="text-sm font-medium text-green-700">{% trans "Active" %}</span>
+                    </div>
+                  {% else %}
+                    <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/50 border border-border">
+                      <div class="w-2 h-2 rounded-full bg-muted-foreground/30"></div>
+                      <span class="text-sm font-medium text-muted-foreground">{% trans "Inactive" %}</span>
+                    </div>
+                  {% endif %}
+                </td>
+                <!-- Created -->
+                <td class="px-6 py-5 whitespace-nowrap">
+                  <div class="space-y-1">
+                    <div class="flex items-center gap-2">
+                      <i class="fa fa-calendar text-muted-foreground text-xs"></i>
+                      <span class="text-sm font-medium text-card-foreground">{{ survey.created_at|date:"M d, Y" }}</span>
+                    </div>
+                    <div class="text-xs text-muted-foreground pl-5">
+                      {% blocktrans with author=survey.created_by.get_full_name|default:survey.created_by.username %}by {{ author }}{% endblocktrans %}
+                    </div>
+                  </div>
+                </td>
+                <!-- Submissions -->
+                <td class="px-6 py-5">
+                  <div class="flex items-center gap-2">
+                      <a href="{% url 'survey:survey_submissions' survey.pk %}"
+                        class="inline-flex items-center justify-center px-3 py-1.5 bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground rounded-lg text-sm font-medium transition-colors whitespace-nowrap">
+                        {% trans "View Submissions" %}
+                      </a>
+                  </div>
+                </td>
+                <!-- Actions -->
+                <td class="px-6 py-5">
+                  <div class="flex items-center justify-end gap-1 transition-opacity duration-200">
+                    <a href="{% url 'survey:survey_detail' survey.pk %}"
+                       class="inline-flex items-center justify-center w-9 h-9 text-muted-foreground hover:text-card-foreground hover:bg-muted rounded-lg transition-all duration-200 hover:shadow-sm"
+                       title="{% trans "View Details" %}">
+                      <i class="fa fa-eye text-sm"></i>
+                    </a>
+                    {% if not is_dashboard_viewer %}
+                    <a href="{% url 'survey:survey_edit' survey.pk %}"
+                       class="inline-flex items-center justify-center w-9 h-9 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-all duration-200 hover:shadow-sm"
+                       title="{% trans "Edit Project" %}">
+                      <i class="fa fa-edit text-sm"></i>
+                    </a>
+                    <button type="button"
+                       @click="openDeleteModal('{{ survey.title|escapejs }}', '{% url 'survey:survey_delete' survey.pk %}')"
+                       class="inline-flex items-center justify-center w-9 h-9 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-all duration-200 hover:shadow-sm"
+                       title="{% trans "Delete Project" %}">
+                      <i class="fa fa-trash text-sm"></i>
+                    </button>
+                    {% endif %}
+                  </div>
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="6" class="px-6 py-20 text-center">
+                  <div class="max-w-md mx-auto space-y-6">
+                    <div class="mx-auto w-20 h-20 bg-gradient-to-br from-muted to-muted/50 rounded-2xl flex items-center justify-center shadow-inner">
+                      <i class="fa fa-poll text-2xl text-muted-foreground/50"></i>
+                    </div>
+                    <div class="space-y-2">
+                      <h3 class="text-xl font-bold text-card-foreground">
+                        {% if search_query %}
+                          {% trans "No Results Found" %}
+                        {% else %}
+                          {% trans "Create Your First Project" %}
+                        {% endif %}
+                      </h3>
+                      <p class="text-muted-foreground leading-relaxed">
+                        {% if search_query %}
+                          {% blocktrans with q=search_query %}We couldn't find any projects matching "<span class="font-semibold text-primary">{{ q }}</span>". Try different search terms or clear the filter.{% endblocktrans %}
+                        {% else %}
+                          {% trans "Get started by creating your first project. Build forms, collect responses, and analyze data like Google Forms." %}
+                        {% endif %}
+                      </p>
+                    </div>
+                    {% if not search_query and is_admin %}
+                      <div class="flex justify-center pt-2">
+                        <a href="{% url 'survey:survey_create' %}"
+                           class="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-xl text-sm font-semibold hover:bg-primary/90 transition-all duration-200 shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 hover:-translate-y-0.5">
+                          <i class="fa fa-plus text-sm"></i>
+                          {% trans "Create Your First Project" %}
+                        </a>
+                      </div>
+                    {% endif %}
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <!-- Enhanced Pagination -->
+      {% if page_obj.has_other_pages %}
+        <div class="bg-gradient-to-r from-muted/10 to-muted/5 px-6 py-5 border-t border-border">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div class="flex items-center gap-2">
+              <div class="w-2 h-2 rounded-full bg-primary"></div>
+              <p class="text-sm text-muted-foreground">
+                {% trans "Displaying" %} <span class="font-semibold text-card-foreground">{{ page_obj.start_index }}-{{ page_obj.end_index }}</span>
+                {% trans "of" %} <span class="font-semibold text-card-foreground">{{ page_obj.paginator.count }}</span> {% trans "total projects" %}
+              </p>
+            </div>
+            <nav class="flex items-center gap-2">
+              {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}"
+                   class="inline-flex items-center justify-center w-10 h-10 rounded-lg border border-border bg-background hover:bg-muted hover:border-muted-foreground/20 transition-all duration-200 group">
+                  <i class="fa fa-chevron-left text-xs text-muted-foreground group-hover:text-card-foreground"></i>
+                </a>
+              {% else %}
+                <div class="inline-flex items-center justify-center w-10 h-10 rounded-lg border border-border/50 bg-muted/20 cursor-not-allowed opacity-50">
+                  <i class="fa fa-chevron-left text-xs text-muted-foreground"></i>
+                </div>
+              {% endif %}
+              <div class="hidden sm:flex items-center gap-1">
+                {% for num in page_obj.paginator.page_range %}
+                  {% if page_obj.number == num %}
+                    <span class="inline-flex items-center justify-center min-w-[2.5rem] h-10 px-3 rounded-lg bg-primary text-primary-foreground text-sm font-semibold shadow-sm">
+                      {{ num }}
+                    </span>
+                  {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                    <a href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}"
+                       class="inline-flex items-center justify-center min-w-[2.5rem] h-10 px-3 rounded-lg border border-transparent hover:border-border bg-transparent hover:bg-muted text-sm font-medium text-muted-foreground hover:text-card-foreground transition-all duration-200">
+                      {{ num }}
+                    </a>
+                  {% elif num == 1 or num == page_obj.paginator.num_pages %}
+                    <a href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}"
+                       class="inline-flex items-center justify-center min-w-[2.5rem] h-10 px-3 rounded-lg border border-transparent hover:border-border bg-transparent hover:bg-muted text-sm font-medium text-muted-foreground hover:text-card-foreground transition-all duration-200">
+                      {{ num }}
+                    </a>
+                  {% elif num == page_obj.number|add:'-4' or num == page_obj.number|add:'4' %}
+                    <span class="inline-flex items-center justify-center min-w-[2.5rem] h-10 text-sm text-muted-foreground/50">•••</span>
+                  {% endif %}
+                {% endfor %}
+              </div>
+              {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}"
+                   class="inline-flex items-center justify-center w-10 h-10 rounded-lg border border-border bg-background hover:bg-muted hover:border-muted-foreground/20 transition-all duration-200 group">
+                  <i class="fa fa-chevron-right text-xs text-muted-foreground group-hover:text-card-foreground"></i>
+                </a>
+              {% else %}
+                <div class="inline-flex items-center justify-center w-10 h-10 rounded-lg border border-border/50 bg-muted/20 cursor-not-allowed opacity-50">
+                  <i class="fa fa-chevron-right text-xs text-muted-foreground"></i>
+                </div>
+              {% endif %}
+            </nav>
+          </div>
+        </div>
+      {% endif %}
+    </div>
+    <!-- Delete Confirmation Modal (teleported to body to cover sidebar/nav/footer) -->
+    <template x-teleport="body">
+      <div x-show="deleteModal.open"
+           x-cloak
+           class="fixed inset-0 z-[100] flex items-center justify-center p-4"
+           x-transition:enter="transition ease-out duration-200"
+           x-transition:enter-start="opacity-0"
+           x-transition:enter-end="opacity-100"
+           x-transition:leave="transition ease-in duration-150"
+           x-transition:leave-start="opacity-100"
+           x-transition:leave-end="opacity-0">
+        <!-- Backdrop -->
+        <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="closeDeleteModal()"></div>
+        <!-- Modal -->
+        <div class="relative bg-card rounded-2xl border border-border shadow-2xl w-full max-w-md overflow-hidden"
+             x-show="deleteModal.open"
+             x-transition:enter="transition ease-out duration-200"
+             x-transition:enter-start="opacity-0 scale-95 translate-y-4"
+             x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+             x-transition:leave="transition ease-in duration-150"
+             x-transition:leave-start="opacity-100 scale-100 translate-y-0"
+             x-transition:leave-end="opacity-0 scale-95 translate-y-4"
+             @click.away="closeDeleteModal()">
+          <!-- Modal Header -->
+          <div class="px-6 py-5 border-b border-border">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 bg-destructive/10 rounded-xl flex items-center justify-center flex-shrink-0">
+                <i class="fa fa-trash text-destructive"></i>
+              </div>
+              <div>
+                <h3 class="text-lg font-bold text-card-foreground">{% trans "Deactivate Project" %}</h3>
+                <p class="text-xs text-muted-foreground mt-0.5">{% trans "This is a soft delete and should complete quickly" %}</p>
+              </div>
+            </div>
+          </div>
+          <!-- Modal Body -->
+          <div class="px-6 py-5">
+            <p class="text-sm text-card-foreground leading-relaxed">
+              {% trans "Are you sure you want to deactivate" %}
+              <strong class="text-destructive" x-text="deleteModal.title"></strong>?
+            </p>
+            <div class="mt-4 bg-destructive/5 border border-destructive/15 rounded-xl p-3">
+              <div class="flex items-start gap-2.5">
+                <i class="fa fa-exclamation-triangle text-destructive text-xs mt-0.5 flex-shrink-0"></i>
+                <p class="text-xs text-destructive/90 leading-relaxed">
+                  {% trans "The project will be marked inactive and hidden from active lists. Its pages, questions, responses, submissions, indicators, and reports will be preserved." %}
+                </p>
+              </div>
+            </div>
+          </div>
+          <!-- Modal Footer -->
+          <div class="px-6 py-4 border-t border-border bg-muted/10">
+            <form :action="deleteModal.url" method="post" x-data="{ submitting: false }" @submit="submitting = true">
+              {% csrf_token %}
+              <div class="flex justify-end gap-3">
+                <button type="button"
+                        @click="closeDeleteModal()"
+                        class="px-4 py-2 border border-border rounded-lg text-sm font-medium text-card-foreground bg-card hover:bg-accent transition-colors">
+                  {% trans "Cancel" %}
+                </button>
+                <button type="submit"
+                        :disabled="submitting"
+                        class="px-5 py-2 rounded-lg text-sm font-medium text-white bg-destructive hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200">
+                  <span x-show="!submitting" class="flex items-center gap-2">
+                    <i class="fa fa-trash text-xs"></i>
+                    {% trans "Deactivate" %}
+                  </span>
+                  <span x-show="submitting" class="flex items-center gap-2">
+                    <div class="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    {% trans "Deactivating..." %}
+                  </span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </template>
+  </div>
+{% endblock %}

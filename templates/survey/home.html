@@ -1,0 +1,301 @@
+{% extends "base_app.html" %}
+{% load i18n %}
+{% load static %}
+{% block title %}{% trans "NAARI – Women's Empowerment Analytics Dashboard" %}{% endblock %}
+
+{% block breadcrumbs %}{% endblock %}
+{% block main_container_class %}w-full h-full{% endblock %}
+
+{% block main_content %}
+  <style>
+    .naari-wrap{
+      --navy:#0D2B55;
+      --navy-mid:#1A4080;
+      --navy-light:#2B5BA8;
+      --saffron:#E07B1A;
+      --saffron-light:#F5A64C;
+      --saffron-pale:#FEF3E6;
+      --green:#1A6B3C;
+      --green-mid:#2A8A50;
+      --green-light:#E6F4EC;
+      --cream:#FAFAF7;
+      --warm-white:#FFFFFF;
+      --text-dark:#0D1B2E;
+      --text-mid:#3A4E66;
+      --text-muted:#7A8FA6;
+      --naari-border:#D8E4F0;
+      font-family:'DM Sans', sans-serif;
+      color:var(--text-dark);
+    }
+
+    .naari-hero{
+      background:linear-gradient(135deg,var(--navy) 0%,var(--navy-mid) 55%,var(--navy-light) 100%);
+      padding:24px 32px 0;
+      position:relative;
+      overflow:hidden;
+      color:#fff;
+    }
+    .naari-hero::before{content:'';position:absolute;top:-50px;right:-50px;width:280px;height:280px;background:rgba(224,123,26,0.07);border-radius:50%;pointer-events:none}
+    .naari-hero::after{content:'';position:absolute;bottom:-60px;right:120px;width:160px;height:160px;background:rgba(26,107,60,0.08);border-radius:50%;pointer-events:none}
+    .naari-hero-top{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;margin-bottom:18px;flex-wrap:wrap}
+    .naari-eyebrow{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.18);padding:4px 10px;border-radius:6px;font-size:10px;color:rgba(255,255,255,0.7);margin-bottom:9px;letter-spacing:0.04em}
+    .naari-eyebrow .dot{width:5px;height:5px;background:var(--saffron-light);border-radius:50%}
+    .naari-title{font-family:'Libre Baskerville',serif;font-size:24px;color:#fff;line-height:1.25;margin:0 0 5px;font-weight:700}
+    .naari-title span{color:var(--saffron-light)}
+    .naari-subtitle{font-size:13px;color:rgba(255,255,255,0.65);max-width:560px;line-height:1.55;margin:0}
+    .naari-search{display:flex;align-items:center;gap:7px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.22);border-radius:9px;padding:8px 13px;min-width:240px;align-self:flex-start}
+    .naari-search input{background:transparent;border:none;outline:none;color:#fff;font-size:12px;font-family:'DM Sans',sans-serif;width:180px}
+    .naari-search input::placeholder{color:rgba(255,255,255,0.4)}
+
+    .naari-stats-row{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid rgba(255,255,255,0.1);margin:0 -32px}
+    .naari-stat-box{padding:14px 22px;border-right:1px solid rgba(255,255,255,0.08)}
+    .naari-stat-box:last-child{border-right:none}
+    .naari-stat-num{font-size:24px;font-weight:700;color:#fff;font-family:'Libre Baskerville',serif;line-height:1.1}
+    .naari-stat-label{font-size:10px;color:rgba(255,255,255,0.55);margin-top:3px;text-transform:uppercase;letter-spacing:0.05em}
+    .naari-stat-badge{display:inline-block;font-size:9px;background:rgba(26,107,60,0.3);color:#7FDDAA;padding:2px 6px;border-radius:4px;margin-top:5px}
+
+    .naari-about{background:#fff;border:1px solid var(--naari-border);border-radius:12px;padding:18px 22px;margin-top:20px;display:flex;gap:18px;align-items:flex-start;position:relative;overflow:hidden}
+    .naari-about::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:linear-gradient(180deg,var(--saffron),var(--navy))}
+    .naari-about-emblem{width:50px;height:50px;background:linear-gradient(135deg,var(--navy),var(--navy-light));border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;color:#fff}
+    .naari-about-tag{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:0.09em;color:var(--saffron);margin-bottom:4px}
+    .naari-about-title{font-family:'Libre Baskerville',serif;font-size:16px;font-weight:700;color:var(--navy);margin:0 0 6px}
+    .naari-about-desc{font-size:13px;color:var(--text-mid);line-height:1.65;max-width:880px;margin:0}
+    .naari-about-pills{display:flex;flex-wrap:wrap;gap:6px;margin-top:11px}
+    .naari-pill{display:inline-flex;align-items:center;gap:4px;font-size:10px;padding:3px 9px;border-radius:20px;font-weight:500}
+    .pill-nav{background:#EAF0FB;color:var(--navy-mid)}
+    .pill-green{background:var(--green-light);color:var(--green)}
+    .pill-saffron{background:var(--saffron-pale);color:#a55800}
+
+    .naari-section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin:28px 0 14px;flex-wrap:wrap}
+    .naari-section-eyebrow{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--saffron);margin-bottom:3px}
+    .naari-section-title{font-family:'Libre Baskerville',serif;font-size:18px;color:var(--navy);font-weight:700;margin:0}
+    .naari-section-desc{font-size:12px;color:var(--text-muted);margin-top:3px}
+
+    .naari-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+    @media (max-width: 1024px){.naari-grid{grid-template-columns:repeat(2,1fr)}}
+    @media (max-width: 640px){.naari-grid{grid-template-columns:1fr}.naari-stats-row{grid-template-columns:repeat(2,1fr)}}
+
+    .naari-card{background:#fff;border:1px solid var(--naari-border);border-radius:12px;padding:18px;display:flex;flex-direction:column;transition:all 0.2s;position:relative;overflow:hidden;text-decoration:none}
+    .naari-card:hover,.naari-card:focus-within{overflow:visible}
+    .naari-card:hover{border-color:var(--navy-light);transform:translateY(-2px);box-shadow:0 6px 20px rgba(13,43,85,0.1)}
+    .naari-card::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;opacity:0;transition:opacity 0.2s}
+    .naari-card:hover::after{opacity:1}
+    .naari-card.col-navy::after{background:var(--navy)}
+    .naari-card.col-saffron::after{background:var(--saffron)}
+    .naari-card.col-green::after{background:var(--green)}
+
+    .naari-card-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;gap:8px}
+
+    /* Info button & tooltip inside indicator card */
+    .naari-card{position:relative}
+    .naari-card:hover,.naari-card:focus-within{z-index:40}
+    .ind-info-wrap{position:relative}
+    .ind-info-btn{
+      width:24px;height:24px;padding:0;border:1px solid rgba(15,23,42,0.14);
+      background:rgba(255,255,255,0.72);border-radius:50%;
+      color:#475569;display:inline-flex;align-items:center;justify-content:center;
+      cursor:pointer;transition:all 0.2s ease;font-size:11px;
+    }
+    .ind-info-btn:hover,.ind-info-btn:focus{
+      background:#fff;border-color:rgba(14,165,233,0.4);color:#0f172a;
+      box-shadow:0 4px 10px rgba(15,23,42,0.12);outline:none;
+    }
+    .ind-info-tooltip{
+      position:absolute;top:32px;right:0;width:min(300px,calc(100vw - 2.5rem));
+      background:#fff;color:#0f172a;border-radius:10px;
+      border:1px solid rgba(226,232,240,0.95);padding:12px;
+      box-shadow:0 12px 24px rgba(15,23,42,0.14);z-index:80;
+      opacity:0;visibility:hidden;transform:translateY(6px);
+      transition:opacity 0.2s ease,transform 0.2s ease,visibility 0.2s ease;
+      pointer-events:none;text-align:left;
+    }
+    .ind-info-tooltip::before{
+      content:"";position:absolute;top:-6px;right:10px;width:10px;height:10px;
+      background:#fff;border-top:1px solid rgba(226,232,240,0.95);
+      border-left:1px solid rgba(226,232,240,0.95);transform:rotate(45deg);
+    }
+    .ind-info-wrap:hover .ind-info-tooltip,
+    .ind-info-wrap:focus-within .ind-info-tooltip{
+      opacity:1;visibility:visible;transform:translateY(0);
+    }
+    .ind-info-header{font-size:12px;font-weight:700;color:#0f172a;margin-bottom:6px}
+    .ind-info-row{font-size:12px;color:#334155;line-height:1.45;padding:4px 0;border-bottom:1px solid #f1f5f9;margin:0}
+    .ind-info-row:last-child{border-bottom:none;padding-bottom:0}
+    .ind-info-row strong{color:#0f172a;font-weight:700}
+    .naari-icon{width:38px;height:38px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+    .icon-navy{background:#EAF0FB;color:var(--navy-mid)}
+    .icon-saffron{background:var(--saffron-pale);color:#a55800}
+    .icon-green{background:var(--green-light);color:var(--green)}
+    .naari-badge{font-size:10px;font-weight:600;padding:3px 8px;border-radius:5px}
+    .badge-navy{background:#EAF0FB;color:var(--navy-mid)}
+    .badge-saffron{background:var(--saffron-pale);color:#a55800}
+    .badge-green{background:var(--green-light);color:var(--green)}
+
+    .naari-card-name{font-size:14px;font-weight:700;color:var(--text-dark);margin:0 0 6px;line-height:1.3}
+    .naari-card-desc{font-size:12px;color:var(--text-muted);line-height:1.55;margin:0 0 14px;flex-grow:1}
+
+    .naari-view-btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:9px;background:var(--navy);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer;transition:background 0.15s;text-decoration:none}
+    .naari-view-btn:hover{background:var(--navy-mid);color:#fff}
+    .naari-view-btn.saffron{background:var(--saffron)}
+    .naari-view-btn.saffron:hover{background:#c96d12}
+    .naari-view-btn.green{background:var(--green)}
+    .naari-view-btn.green:hover{background:#155030}
+
+    .naari-bottom{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:22px}
+    @media (max-width: 900px){.naari-bottom{grid-template-columns:1fr}}
+    .naari-panel{background:#fff;border:1px solid var(--naari-border);border-radius:12px;padding:20px}
+    .naari-panel-title{font-size:13px;font-weight:700;color:var(--navy);margin:0 0 14px;display:flex;align-items:center;gap:8px}
+    .naari-panel-icon{width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px}
+    .p-icon-navy{background:#EAF0FB;color:var(--navy-mid)}
+    .p-icon-saffron{background:var(--saffron-pale);color:#a55800}
+
+    .naari-proj-list{display:flex;flex-direction:column;gap:10px}
+    .naari-proj{display:flex;align-items:flex-start;gap:12px;padding:10px 12px;border:1px solid var(--naari-border);border-radius:10px;background:var(--cream)}
+    .naari-proj-rank{width:24px;height:24px;border-radius:50%;background:var(--navy);color:#fff;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+    .naari-proj-title{font-size:13px;font-weight:600;color:var(--text-dark);margin:0 0 3px;line-height:1.3}
+    .naari-proj-meta{display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--text-muted)}
+    .naari-proj-meta strong{color:var(--navy);font-weight:700}
+
+    .naari-alert{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:8px;background:var(--saffron-pale);border:1px solid rgba(224,123,26,0.18);margin-bottom:8px;font-size:12px;color:#7a4500;line-height:1.5}
+    .naari-alert-dot{width:6px;height:6px;border-radius:50%;background:var(--saffron);flex-shrink:0;margin-top:5px}
+  </style>
+
+  <div class="naari-wrap">
+
+    <!-- HERO -->
+    <div class="naari-hero">
+      <div class="naari-hero-top">
+        <div>
+          <div class="naari-eyebrow"><span class="dot"></span> NAARI</div>
+          <h1 class="naari-title">{% trans "Women's Empowerment" %}<br><span>{% trans "Analytics Dashboard" %}</span></h1>
+          <p class="naari-subtitle">{% trans "Real-time monitoring of empowerment indicators across India's agricultural landscape, calibrated for FPO-associated and independent farm women." %}</p>
+        </div>
+      </div>
+      <div class="naari-stats-row">
+        <div class="naari-stat-box">
+          <div class="naari-stat-num">{{ stats.total_states_count|default:0 }}</div>
+          <div class="naari-stat-label">{% trans "States" %}</div>
+          <span class="naari-stat-badge">{% trans "Active" %}</span>
+        </div>
+        <div class="naari-stat-box">
+          <div class="naari-stat-num">{{ stats.total_districts_count|default:0 }}</div>
+          <div class="naari-stat-label">{% trans "Districts" %}</div>
+          <span class="naari-stat-badge">{% trans "Covered" %}</span>
+        </div>
+        <div class="naari-stat-box">
+          <div class="naari-stat-num">{{ stats.total_blocks_count|default:0 }}</div>
+          <div class="naari-stat-label">{% trans "Blocks" %}</div>
+          <span class="naari-stat-badge">{% trans "Mapped" %}</span>
+        </div>
+        <div class="naari-stat-box">
+          <div class="naari-stat-num">{{ stats.total_women_surveyed|default:0 }}</div>
+          <div class="naari-stat-label">{% trans "Women Surveyed" %}</div>
+          <span class="naari-stat-badge">{% trans "Verified" %}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="naari-below-hero" style="padding: 20px 28px 24px;">
+
+    <!-- ABOUT CARD -->
+    <div class="naari-about" style="margin-top:0">
+      <div class="naari-about-emblem"><i class="fa fa-leaf"></i></div>
+      <div>
+        <div class="naari-about-tag">{% trans "About NAARI" %}</div>
+        <h2 class="naari-about-title">National Assessment of Agency, Resilience and Inclusion</h2>
+        <p class="naari-about-desc">{% trans "NAARI is a measurement tool for women's empowerment, agency and resilience in agriculture, contextualised for India's diverse agri-socioeconomic landscape." %}</p>
+        <div class="naari-about-pills">
+          <span class="naari-pill pill-saffron"><i class="fa fa-seedling" style="font-size:9px"></i> {% trans "FPO & Non-FPO Women" %}</span>
+          <span class="naari-pill pill-nav"><i class="fa fa-map-marker" style="font-size:9px"></i> {{ stats.total_states_count|default:0 }} {% trans "States · India" %}</span>
+          <span class="naari-pill pill-green"><i class="fa fa-check" style="font-size:9px"></i> {% trans "Gender-Disaggregated Data" %}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- PROJECT INSTRUMENTS -->
+    {% if survey_types %}
+    <div class="naari-section-head">
+      <div>
+        <div class="naari-section-eyebrow" style="color:#0ea5e9">{% trans "Project Instruments" %}</div>
+        <h2 class="naari-section-title" style="font-size:28px">{% trans "Types of Projects" %}</h2>
+      </div>
+    </div>
+
+    <!-- auto-fill keeps a lone card at its natural width instead of stretching
+         it across the whole row, which auto-fit would do. -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;margin-bottom:28px">
+      {% for survey_type in survey_types %}
+        <div style="background:#fff;border:1px solid var(--naari-border);border-radius:14px;padding:22px;display:flex;flex-direction:column;transition:all 0.2s;"
+             onmouseover="this.style.boxShadow='0 8px 24px rgba(13,43,85,0.08)';this.style.transform='translateY(-2px)'"
+             onmouseout="this.style.boxShadow='none';this.style.transform='none'">
+          <h3 style="font-size:17px;font-weight:700;color:var(--text-dark);margin:0 0 8px;line-height:1.3">{{ survey_type.title }}</h3>
+          {% if survey_type.description %}
+            <p style="font-size:13px;color:var(--text-mid);line-height:1.6;margin:0 0 18px">{{ survey_type.description }}</p>
+          {% endif %}
+          <div style="margin-top:auto;padding-top:16px;border-top:1px solid var(--naari-border);display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
+            <div>
+              <div style="font-size:22px;font-weight:700;color:var(--text-dark);line-height:1.1;font-family:'Libre Baskerville',serif">{{ survey_type.submission_count }}</div>
+              <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-top:4px">{% trans "Responses" %}</div>
+            </div>
+            <div>
+              <div style="font-size:22px;font-weight:700;color:var(--text-dark);line-height:1.1;font-family:'Libre Baskerville',serif">{{ survey_type.question_count }}</div>
+              <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-top:4px">{% trans "Questions" %}</div>
+            </div>
+            <div>
+              <div style="font-size:22px;font-weight:700;color:var(--text-dark);line-height:1.1;font-family:'Libre Baskerville',serif">{{ survey_type.module_count }}</div>
+              <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-top:4px">{% trans "Modules" %}</div>
+            </div>
+            <div>
+              <div style="font-size:22px;font-weight:700;color:var(--text-dark);line-height:1.1;font-family:'Libre Baskerville',serif">{{ survey_type.indicator_count }}</div>
+              <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-top:4px">{% trans "Indicators" %}</div>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- EMPOWERMENT DIMENSIONS -->
+    <div class="naari-section-head">
+      <div>
+        <div class="naari-section-eyebrow">{% trans "Deep Dive" %}</div>
+        <h2 class="naari-section-title">{% trans "Empowerment Dimensions" %}</h2>
+        <div class="naari-section-desc">{% trans "Explore detailed analytics for each indicator. Click any card to access comprehensive reports." %}</div>
+      </div>
+    </div>
+
+    <div class="naari-grid">
+      {% for dimension in empowerment_dimensions %}
+        {% cycle 'navy' 'saffron' 'green' as col silent %}
+        {% cycle '🏡' '💰' '💳' '🌱' '🏦' '⏰' '📍' '💪' '🤝' as dim_emoji silent %}
+        <div class="naari-card col-{{ col }}">
+          <div class="naari-card-head">
+            <div class="naari-icon icon-{{ col }}" style="font-size:18px;line-height:1">{{ dim_emoji }}</div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span class="naari-badge badge-{{ col }}">{% trans "Indicator" %} {{ forloop.counter }}</span>
+              <div class="ind-info-wrap">
+                <button type="button" class="ind-info-btn" aria-label="{% trans 'Show details for' %} {{ dimension.title }}">
+                  <i class="fa fa-info"></i>
+                </button>
+                <div class="ind-info-tooltip" role="tooltip">
+                  <div class="ind-info-header">{% trans "Indicator Details" %}</div>
+                  <p class="ind-info-row"><strong>{% trans "Indicator" %}:</strong> {{ dimension.title|cut:" Script" }}</p>
+                  <p class="ind-info-row"><strong>{% trans "Module" %}:</strong> {{ dimension.module_label|default:"Overview" }}</p>
+                  <p class="ind-info-row"><strong>{% trans "Report" %}:</strong> {{ dimension.report_title|default:"Overview" }}</p>
+                  <p class="ind-info-row"><strong>{% trans "Details" %}:</strong> {{ dimension.report_description|default:dimension.description }}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <h3 class="naari-card-name">{{ dimension.title|cut:" Script" }}</h3>
+          <p class="naari-card-desc">{{ dimension.description }}</p>
+          <a href="{% url 'survey:reports_v2' %}#{{ dimension.report_type }}" class="naari-view-btn {% if col != 'navy' %}{{ col }}{% endif %}">
+            {% trans "View Report" %} <i class="fa fa-arrow-right" style="font-size:10px"></i>
+          </a>
+        </div>
+      {% endfor %}
+    </div>
+
+    </div><!-- /naari-below-hero -->
+  </div>
+{% endblock %}

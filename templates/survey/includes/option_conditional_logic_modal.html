@@ -1,0 +1,153 @@
+{% load i18n %}
+<!-- Option Conditional Logic Modal -->
+<template x-if="showOptionConditionModal">
+  <div class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" @click.self="showOptionConditionModal = false">
+    <div class="bg-card rounded-lg shadow-lg max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+      <div class="flex items-center justify-between p-6 border-b border-border">
+        <h2 class="text-xl font-semibold text-card-foreground">{% trans "Option Conditional Logic" %}</h2>
+        <button @click="showOptionConditionModal = false" class="p-2 text-muted-foreground hover:text-destructive rounded-full transition-colors">
+          <i class="fa fa-times"></i>
+        </button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto p-6">
+        <template x-if="optionConditionModal.option">
+          <div>
+            <!-- Toggle -->
+            <div class="mb-6">
+              <label class="flex items-center gap-3">
+                <input type="checkbox" :checked="optionConditionModal.option.is_conditional" @change="toggleOptionConditional(optionConditionModal.option.id, $event.target.checked)" class="w-4 h-4">
+                <span class="text-card-foreground font-medium">{% trans "Enable conditional logic for this option" %}</span>
+              </label>
+              <p class="text-sm text-muted-foreground mt-2">{% trans "Show this option only when specific conditions are met" %}</p>
+            </div>
+
+            <!-- Existing conditions -->
+            <template x-if="optionConditionModal.conditions.length > 0">
+              <div class="mb-6">
+                <h3 class="text-lg font-medium text-card-foreground mb-4">{% trans "Current Conditions" %}</h3>
+                <div class="space-y-3">
+                  <template x-for="(condition, index) in optionConditionModal.conditions" :key="condition.id || index">
+                    <div class="bg-muted p-4 rounded-lg border border-border">
+                      <div class="flex items-center justify-between mb-3">
+                        <span class="text-sm font-medium text-card-foreground">{% trans "Condition #" %}<span x-text="index + 1"></span></span>
+                        <button @click="deleteOptionCondition(condition.id, index)" class="p-1 text-destructive hover:bg-destructive/10 rounded transition-colors" title="{% trans 'Delete Condition' %}">
+                          <i class="fa fa-trash text-xs"></i>
+                        </button>
+                      </div>
+                      <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                        <div>
+                          <span class="text-muted-foreground">{% trans "If question:" %}</span>
+                          <div class="font-medium" x-text="getQuestionText(condition.target_question)"></div>
+                        </div>
+                        <div>
+                          <span class="text-muted-foreground">{% trans "Condition:" %}</span>
+                          <div class="font-medium" x-text="getConditionDisplay(condition.condition_type)"></div>
+                        </div>
+                        <template x-if="condition.value">
+                          <div>
+                            <span class="text-muted-foreground">{% trans "Value:" %}</span>
+                            <div class="font-medium" x-text="condition.value"></div>
+                          </div>
+                        </template>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </template>
+
+            <!-- Add new condition -->
+            <div class="bg-accent/20 p-4 rounded-lg border border-border">
+              <h3 class="text-lg font-medium text-card-foreground mb-4">{% trans "Add New Condition" %}</h3>
+
+              <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <!-- Page Selector -->
+                <div>
+                  <label class="block text-sm font-medium text-card-foreground mb-2">{% trans "From page:" %}</label>
+                  <select x-model="optionConditionModal.selectedPageId"
+                          @change="refreshOptionConditionQuestions()"
+                          class="w-full border border-border rounded px-3 py-2 bg-card text-card-foreground focus:outline-none focus:border-primary">
+                    <option value="current">{% trans "Current Page" %}</option>
+                    <option value="all">{% trans "All Pages" %}</option>
+                    <template x-for="page in optionConditionModal.pages" :key="page.id">
+                      <option :value="String(page.id)" x-text="page.title"></option>
+                    </template>
+                  </select>
+                </div>
+
+                <!-- Target Question -->
+                <div class="md:col-span-2">
+                  <label class="block text-sm font-medium text-card-foreground mb-2">{% trans "If question:" %}</label>
+                  <select x-model="newOptionCondition.target_question_id"
+                          @change="updateOptionValueFieldType($event.target.value)"
+                          class="w-full border border-border rounded px-3 py-2 bg-card text-card-foreground focus:outline-none focus:border-primary">
+                    <option value="">{% trans "Select a question" %}</option>
+                    <template x-for="q in optionConditionModal.availableQuestions" :key="q.id">
+                      <option :value="q.id" x-text="q.displayText || q.text || ('Question ' + q.id)"></option>
+                    </template>
+                  </select>
+                  <template x-if="optionConditionModal.availableQuestions.length === 0">
+                    <p class="text-sm text-muted-foreground pt-2" x-text="optionConditionModal.selectedPageId === 'current' ? 'No other questions on this page.' : (optionConditionModal.selectedPageId === 'all' ? 'No other questions available in this survey.' : 'No questions on the selected page.')"></p>
+                  </template>
+                </div>
+
+                <!-- Condition Type -->
+                <div>
+                  <label class="block text-sm font-medium text-card-foreground mb-2">{% trans "Condition:" %}</label>
+                  <select x-model="newOptionCondition.condition_type"
+                          class="w-full border border-border rounded px-3 py-2 bg-card text-card-foreground focus:outline-none focus:border-primary">
+                    <option value="equals">{% trans "Equals" %}</option>
+                    <option value="not_equals">{% trans "Not Equals" %}</option>
+                    <option value="contains">{% trans "Contains" %}</option>
+                    <option value="not_contains">{% trans "Not Contains" %}</option>
+                    <option value="greater_than">{% trans "Greater Than" %}</option>
+                    <option value="less_than">{% trans "Less Than" %}</option>
+                    <option value="is_empty">{% trans "Is Empty" %}</option>
+                    <option value="is_not_empty">{% trans "Is Not Empty" %}</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Value Field (second row for conditions that require it) -->
+              <template x-if="!['is_empty', 'is_not_empty'].includes(newOptionCondition.condition_type)">
+                <div class="mt-4">
+                  <label class="block text-sm font-medium text-card-foreground mb-2">{% trans "Value:" %}</label>
+                  <!-- Text input for questions without options -->
+                  <template x-if="!optionConditionModal.showOptionsDropdown">
+                    <input type="text"
+                           x-model="newOptionCondition.value"
+                           class="w-full border border-border rounded px-3 py-2 bg-card text-card-foreground focus:outline-none focus:border-primary"
+                           placeholder="{% trans 'Enter value' %}">
+                  </template>
+                  <!-- Dropdown for questions with options -->
+                  <template x-if="optionConditionModal.showOptionsDropdown">
+                    <select x-model="newOptionCondition.value"
+                            class="w-full border border-border rounded px-3 py-2 bg-card text-card-foreground focus:outline-none focus:border-primary">
+                      <option value="">{% trans "Select value" %}</option>
+                      <template x-for="opt in optionConditionModal.targetQuestionOptions" :key="opt.id">
+                        <option :value="opt.text" x-text="opt.text"></option>
+                      </template>
+                    </select>
+                  </template>
+                </div>
+              </template>
+
+              <div class="mt-4 flex justify-end">
+                <button @click="addOptionCondition()"
+                        :disabled="!isValidNewOptionCondition()"
+                        class="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed">
+                  {% trans "Add Condition" %}
+                </button>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <div class="flex justify-end gap-3 p-6 border-t border-border">
+        <button @click="showOptionConditionModal = false" class="px-4 py-2 border border-border text-card-foreground rounded hover:bg-accent">{% trans "Close" %}</button>
+      </div>
+    </div>
+  </div>
+</template>

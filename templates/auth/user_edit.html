@@ -1,0 +1,237 @@
+{% extends "base_app.html" %}
+{% load i18n %}
+
+{% block main_content %}
+<div class="max-w-4xl mx-auto">
+  <div class="bg-card rounded-xl shadow-sm border border-border/50 p-6">
+    <form method="post" class="space-y-6">
+      {% csrf_token %}
+      
+      <!-- Basic Information -->
+      <div>
+        <h2 class="text-lg font-semibold text-foreground mb-4 flex items-center">
+          <i class="fa fa-user mr-2 text-primary"></i>
+          {% trans "Basic Information" %}
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label for="username" class="block text-sm font-medium text-foreground mb-2">
+              {% trans "Username" %} <span class="text-destructive">*</span>
+            </label>
+            <input type="text" 
+                   id="username" 
+                   name="username" 
+                   value="{{ edited_user.username }}"
+                   required
+                   class="form-control" 
+                   placeholder="{% trans 'Enter username' %}">
+          </div>
+          
+          <div>
+            <label for="email" class="block text-sm font-medium text-foreground mb-2">
+              {% trans "Email" %} <span class="text-destructive">*</span>
+            </label>
+            <input type="email" 
+                   id="email" 
+                   name="email" 
+                   value="{{ edited_user.email }}"
+                   required
+                   class="form-control" 
+                   placeholder="{% trans 'Enter email address' %}">
+          </div>
+          
+          <div>
+            <label for="first_name" class="block text-sm font-medium text-foreground mb-2">
+              {% trans "First Name" %}
+            </label>
+            <input type="text" 
+                   id="first_name" 
+                   name="first_name" 
+                   value="{{ edited_user.first_name }}"
+                   class="form-control" 
+                   placeholder="{% trans 'Enter first name' %}">
+          </div>
+          
+          <div>
+            <label for="last_name" class="block text-sm font-medium text-foreground mb-2">
+              {% trans "Last Name" %}
+            </label>
+            <input type="text" 
+                   id="last_name" 
+                   name="last_name" 
+                   value="{{ edited_user.last_name }}"
+                   class="form-control" 
+                   placeholder="{% trans 'Enter last name' %}">
+          </div>
+        </div>
+      </div>
+
+      <!-- Change Password (Optional) -->
+      <div>
+        <h2 class="text-lg font-semibold text-foreground mb-4 flex items-center">
+          <i class="fa fa-lock mr-2 text-primary"></i>
+          {% trans "Change Password" %}
+          <span class="text-sm font-normal text-muted-foreground ml-2">
+            ({% trans "Leave blank to keep current password" %})
+          </span>
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label for="new_password" class="block text-sm font-medium text-foreground mb-2">
+              {% trans "New Password" %}
+            </label>
+            <input type="password" 
+                   id="new_password" 
+                   name="new_password" 
+                   minlength="8"
+                   class="form-control" 
+                   placeholder="{% trans 'Enter new password (min 8 characters)' %}">
+          </div>
+          
+          <div>
+            <label for="new_password_confirm" class="block text-sm font-medium text-foreground mb-2">
+              {% trans "Confirm New Password" %}
+            </label>
+            <input type="password" 
+                   id="new_password_confirm" 
+                   name="new_password_confirm" 
+                   minlength="8"
+                   class="form-control" 
+                   placeholder="{% trans 'Confirm new password' %}">
+          </div>
+        </div>
+      </div>
+
+      <!-- Permissions -->
+      <div>
+        <h2 class="text-lg font-semibold text-foreground mb-4 flex items-center">
+          <i class="fa fa-shield-alt mr-2 text-primary"></i>
+          {% trans "Permissions" %}
+        </h2>
+        <div class="space-y-4">
+          <!-- Account Status -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="space-y-3">
+              <div class="flex items-center">
+                <input type="checkbox" 
+                       id="is_active" 
+                       name="is_active" 
+                       {% if edited_user.is_active %}checked{% endif %}
+                       class="form-check-input mr-3">
+                <label for="is_active" class="text-sm font-medium text-foreground">
+                  {% trans "Active" %}
+                </label>
+              </div>
+              <p class="text-xs text-muted-foreground ml-6">
+                {% trans "User can log in and access the system" %}
+              </p>
+            </div>
+            
+            <div class="space-y-3">
+              <div class="flex items-center">
+                <input type="checkbox" 
+                       id="is_staff" 
+                       name="is_staff" 
+                       {% if edited_user.is_staff %}checked{% endif %}
+                       class="form-check-input mr-3">
+                <label for="is_staff" class="text-sm font-medium text-foreground">
+                  {% trans "Staff Status" %}
+                </label>
+              </div>
+              <p class="text-xs text-muted-foreground ml-6">
+                {% trans "User can access admin interface" %}
+              </p>
+            </div>
+          </div>
+
+          <!-- Groups -->
+          <div>
+            <label class="block text-sm font-medium text-foreground mb-3">
+              {% trans "Groups" %}
+            </label>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {% for group in all_groups %}
+                <div class="flex items-center">
+                  <input type="checkbox" 
+                         id="group_{{ group.id }}" 
+                         name="groups" 
+                         value="{{ group.id }}" 
+                         {% if group.id in user_group_ids %}checked{% endif %}
+                         class="form-check-input mr-3">
+                  <label for="group_{{ group.id }}" class="text-sm text-foreground">
+                    {{ group.name|title }}
+                  </label>
+                </div>
+              {% empty %}
+                <p class="text-sm text-muted-foreground">{% trans "No groups available" %}</p>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Account Information -->
+      <div class="bg-muted/20 rounded-lg p-4">
+        <h3 class="text-sm font-medium text-foreground mb-3">{% trans "Account Information" %}</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+          <div>
+            <span class="text-muted-foreground">{% trans "Date Joined:" %}</span>
+            <span class="text-foreground ml-2">{{ edited_user.date_joined|date:"F d, Y g:i A" }}</span>
+          </div>
+          <div>
+            <span class="text-muted-foreground">{% trans "Last Login:" %}</span>
+            <span class="text-foreground ml-2">
+              {% if edited_user.last_login %}
+                {{ edited_user.last_login|date:"F d, Y g:i A" }}
+              {% else %}
+                {% trans "Never" %}
+              {% endif %}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="flex items-center justify-end space-x-4 pt-6 border-t border-border">
+        <a href="{% url 'management:user_detail' edited_user.id %}" 
+           class="inline-flex items-center px-4 py-2 border border-border rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all duration-200">
+          <i class="fa fa-times mr-2"></i>
+          {% trans "Cancel" %}
+        </a>
+        <button type="submit" 
+                class="inline-flex items-center px-6 py-2 rounded-xl text-sm font-medium text-primary-foreground bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring transition-all duration-200">
+          <i class="fa fa-save mr-2"></i>
+          {% trans "Update User" %}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+// Password confirmation validation
+document.addEventListener('DOMContentLoaded', function() {
+  const newPassword = document.getElementById('new_password');
+  const newPasswordConfirm = document.getElementById('new_password_confirm');
+  
+  function validatePasswords() {
+    if (newPassword.value || newPasswordConfirm.value) {
+      if (newPassword.value !== newPasswordConfirm.value) {
+        newPasswordConfirm.setCustomValidity('{% trans "Passwords do not match" %}');
+      } else if (newPassword.value && newPassword.value.length < 8) {
+        newPassword.setCustomValidity('{% trans "Password must be at least 8 characters long" %}');
+      } else {
+        newPassword.setCustomValidity('');
+        newPasswordConfirm.setCustomValidity('');
+      }
+    } else {
+      newPassword.setCustomValidity('');
+      newPasswordConfirm.setCustomValidity('');
+    }
+  }
+  
+  newPassword.addEventListener('input', validatePasswords);
+  newPasswordConfirm.addEventListener('input', validatePasswords);
+});
+</script>
+{% endblock %}

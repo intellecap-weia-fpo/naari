@@ -1,0 +1,38 @@
+{% load i18n %}
+<!-- Empty State for Current Page -->
+<template x-if="currentPage && (!currentPage.questions || currentPage.questions.length === 0)">
+  <div class="bg-card rounded-lg border border-border">
+    <div class="p-12 text-center">
+      <div class="mx-auto w-20 h-20 bg-primary/10 text-primary rounded-full flex items-center justify-center mb-6">
+        <i class="fa fa-question-circle text-2xl"></i>
+      </div>
+      <h3 class="text-xl font-medium text-card-foreground mb-2">{% trans "No Questions on This Page" %}</h3>
+      <p class="text-muted-foreground mb-6">{% trans "Add your first question to this page to get started building your survey." %}</p>
+      <button @click="addNewQuestion()"
+              class="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors">
+        <i class="fa fa-plus"></i>
+        {% trans "Add Question" %}
+      </button>
+    </div>
+  </div>
+</template>
+
+<!-- Empty State for No Pages -->
+<template x-if="pages.length === 0">
+  <div class="bg-card rounded-lg border border-border">
+    <div class="p-12 text-center">
+      <div class="mx-auto w-20 h-20 bg-primary/10 text-primary rounded-full flex items-center justify-center mb-6">
+        <i class="fa fa-file-plus text-2xl"></i>
+      </div>
+      <h3 class="text-xl font-medium text-card-foreground mb-2">{% trans "No Pages Yet" %}</h3>
+      <p class="text-muted-foreground mb-6">
+        {% trans "Start building your survey by creating your first page. Pages help organize your questions into logical sections." %}
+      </p>
+      <button @click="addNewPage()"
+              class="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors">
+        <i class="fa fa-plus"></i>
+        {% trans "Add First Page" %}
+      </button>
+    </div>
+  </div>
+</template>

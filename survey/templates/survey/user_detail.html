@@ -1,0 +1,905 @@
+{% extends "base_app.html" %}
+{% load i18n %}
+
+{% block page_title_block %}
+<h1 class="text-2xl sm:text-3xl font-bold text-foreground bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text text-transparent">
+    {{ user_obj.get_full_name|default:user_obj.username }}
+    <span class="text-muted-foreground text-lg">(@{{ user_obj.username }})</span>
+  </h1>
+{% endblock %}
+
+{% block page_subtitle_block %}
+<p class="mt-2 text-muted-foreground">{% trans "User Details & Submissions" %}</p>
+{% endblock %}
+
+{% block page_actions %}
+<div class="flex flex-col sm:flex-row gap-3 lg:flex-shrink-0">
+  <a href="{% url 'survey:user_management' %}" class="inline-flex items-center justify-center px-4 py-2.5 rounded-xl shadow-sm text-sm font-medium text-muted-foreground bg-card hover:bg-accent border border-border focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring transition-all duration-200 hover:scale-105 active:scale-95">
+    <i class="fa fa-arrow-left w-4 h-4 mr-2"></i>
+    {% trans "Back to Users" %}
+  </a>
+</div>
+{% endblock %}
+
+{% block main_content %}
+{% if use_survey_sidebar %}
+  {% include "survey/sidebar.html" %}
+{% endif %}
+
+<div x-data="userSurveyManager()">
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <!-- Main Content Area (Left) -->
+    <div class="lg:col-span-2 space-y-6">
+
+      <!-- User Summary -->
+      <div class="bg-card rounded-xl p-6 border border-border shadow-sm">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label class="text-sm font-medium text-muted-foreground">{% trans "Email" %}</label>
+            <p class="text-sm text-card-foreground">{{ user_obj.email|default:"-" }}</p>
+          </div>
+          <div>
+            <label class="text-sm font-medium text-muted-foreground">{% trans "Status" %}</label>
+            <p class="text-sm text-card-foreground">
+              {% if user_obj.is_active %}
+                <span class="inline-flex items-center gap-2 px-2 py-1 rounded-lg bg-green-500/10 border border-green-500/20 text-green-700 text-xs">{% trans "Active" %}</span>
+              {% else %}
+                <span class="inline-flex items-center gap-2 px-2 py-1 rounded-lg bg-muted/50 border border-border text-muted-foreground text-xs">{% trans "Inactive" %}</span>
+              {% endif %}
+            </p>
+          </div>
+          <div>
+            <label class="text-sm font-medium text-muted-foreground">{% trans "Joined" %}</label>
+            <p class="text-sm text-card-foreground">{{ user_obj.date_joined|date:"M d, Y" }}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats Cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+        <!-- Today's Submissions -->
+        <div class="bg-card rounded-xl px-4 py-4 sm:px-5 sm:py-5 border border-border shadow-sm">
+          <div class="flex items-center gap-2 mb-2">
+            <div class="w-8 h-8 shrink-0 rounded-lg bg-primary/10 flex items-center justify-center">
+              <i class="fa fa-calendar text-primary"></i>
+            </div>
+            <p class="text-xs sm:text-sm font-medium text-muted-foreground leading-tight">{% trans "Today's Submissions" %}</p>
+          </div>
+          <p class="text-2xl sm:text-3xl font-bold text-card-foreground leading-none">{{ today_submissions }}</p>
+        </div>
+
+        <!-- Completed -->
+        <div class="bg-card rounded-xl px-4 py-4 sm:px-5 sm:py-5 border border-border shadow-sm">
+          <div class="flex items-center gap-2 mb-2">
+            <div class="w-8 h-8 shrink-0 rounded-lg bg-green-500/10 flex items-center justify-center">
+              <i class="fa fa-check-circle text-green-600"></i>
+            </div>
+            <p class="text-xs sm:text-sm font-medium text-muted-foreground leading-tight">{% trans "Completed" %}</p>
+          </div>
+          <p class="text-2xl sm:text-3xl font-bold text-card-foreground leading-none">{{ completed_submissions }}</p>
+        </div>
+
+        <!-- Draft -->
+        <div class="bg-card rounded-xl px-4 py-4 sm:px-5 sm:py-5 border border-border shadow-sm">
+          <div class="flex items-center gap-2 mb-2">
+            <div class="w-8 h-8 shrink-0 rounded-lg bg-slate-500/10 flex items-center justify-center">
+              <i class="fa fa-pencil-square-o text-slate-600"></i>
+            </div>
+            <p class="text-xs sm:text-sm font-medium text-muted-foreground leading-tight">{% trans "Draft" %}</p>
+          </div>
+          <p class="text-2xl sm:text-3xl font-bold text-card-foreground leading-none">{{ draft_submissions }}</p>
+        </div>
+      </div>
+
+      <!-- Submissions List -->
+      <div class="bg-card rounded-xl border border-border shadow-sm">
+        <div class="p-6 border-b border-border">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h2 class="text-lg font-semibold text-card-foreground">{% trans "Submitted Projects" %}</h2>
+              <p class="text-sm text-muted-foreground mt-1">{% trans "All projects submitted by this user" %}</p>
+            </div>
+          </div>
+
+          <!-- Filters -->
+          <form method="get" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <!-- Search by Name -->
+            <div>
+              <label for="search" class="block text-sm font-medium text-card-foreground mb-2">
+                <i class="fa fa-search mr-1"></i>
+                {% trans "Search" %}
+              </label>
+              <input type="text"
+                     id="search"
+                     name="search"
+                     value="{{ search_query }}"
+                     placeholder="{% trans 'Search by project or submission...' %}"
+                     class="form-control w-full">
+            </div>
+
+            <!-- Start Date -->
+            <div>
+              <label for="start_date" class="block text-sm font-medium text-card-foreground mb-2">
+                <i class="fa fa-calendar mr-1"></i>
+                {% trans "Start Date" %}
+              </label>
+              <input type="date"
+                     id="start_date"
+                     name="start_date"
+                     value="{{ start_date }}"
+                     class="form-control w-full">
+            </div>
+
+            <!-- End Date -->
+            <div>
+              <label for="end_date" class="block text-sm font-medium text-card-foreground mb-2">
+                <i class="fa fa-calendar mr-1"></i>
+                {% trans "End Date" %}
+              </label>
+              <input type="date"
+                     id="end_date"
+                     name="end_date"
+                     value="{{ end_date }}"
+                     class="form-control w-full">
+            </div>
+
+            <!-- Filter Actions -->
+            <div class="md:col-span-3 flex items-center gap-3">
+              <button type="submit"
+                      class="inline-flex items-center justify-center px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
+                <i class="fa fa-filter mr-2"></i>
+                {% trans "Apply Filters" %}
+              </button>
+              <a href="{% url 'survey:user_detail' user_obj.id %}"
+                 class="inline-flex items-center justify-center px-4 py-2 bg-muted text-muted-foreground rounded-lg text-sm font-medium hover:bg-muted/80 transition-colors">
+                <i class="fa fa-times mr-2"></i>
+                {% trans "Clear Filters" %}
+              </a>
+              {% if search_query or start_date or end_date %}
+              <span class="text-sm text-muted-foreground">
+                <i class="fa fa-info-circle mr-1"></i>
+                {% trans "Filters active" %}
+              </span>
+              {% endif %}
+            </div>
+          </form>
+        </div>
+
+        {% if submissions %}
+        <div class="divide-y divide-border">
+          {% for submission in submissions %}
+          <div class="p-4 hover:bg-muted/30 transition-colors">
+            <div class="flex items-center justify-between">
+              <div class="flex-1">
+                <a href="{% url 'survey:submission_detail' submission.survey.id submission.id %}?from_user={{ user_obj.id }}"
+                   class="font-medium text-card-foreground hover:text-primary hover:underline">
+                  {{ submission.title }}
+                </a>
+                <div class="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
+                  <span>
+                    <i class="fa fa-clipboard-list mr-1"></i>
+                    {{ submission.survey.title }}
+                  </span>
+                  <span>
+                    <i class="fa fa-clock mr-1"></i>
+                    {{ submission.submitted_at|date:"M d, Y H:i" }}
+                  </span>
+                  <span class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs
+                    {% if submission.status == 'completed' %}bg-green-500/10 text-green-700
+                    {% elif submission.status == 'pending' %}bg-yellow-500/10 text-yellow-700
+                    {% else %}bg-muted text-muted-foreground{% endif %}">
+                    <i class="fa fa-circle text-[6px]"></i>
+                    {{ submission.get_status_display }}
+                  </span>
+                  {% if not submission.answer_count %}
+                  <span class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs bg-amber-500/10 text-amber-700"
+                        title="{% trans 'This response was started but no answers were recorded.' %}">
+                    <i class="fa fa-circle-exclamation text-[10px]"></i>
+                    {% trans "No answers" %}
+                  </span>
+                  {% endif %}
+                </div>
+              </div>
+              <a href="{% url 'survey:submission_detail' submission.survey.id submission.id %}?from_user={{ user_obj.id }}"
+                 class="ml-4 text-primary hover:text-primary/80">
+                <i class="fa fa-arrow-right"></i>
+              </a>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+
+        <!-- Pagination -->
+        {% if submissions.has_other_pages %}
+        <div class="p-4 border-t border-border">
+          <div class="flex items-center justify-between">
+            <div class="text-sm text-muted-foreground">
+              {% trans "Showing" %} {{ submissions.start_index }} - {{ submissions.end_index }} {% trans "of" %} {{ total_submissions }}
+            </div>
+            <div class="flex items-center gap-2">
+              {% if submissions.has_previous %}
+                <a href="?page={{ submissions.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}"
+                   class="px-3 py-2 text-sm font-medium text-card-foreground bg-background hover:bg-muted border border-border rounded-lg transition-colors">
+                  <i class="fa fa-chevron-left"></i>
+                </a>
+              {% endif %}
+
+              <span class="px-3 py-2 text-sm font-medium text-card-foreground">
+                {% trans "Page" %} {{ submissions.number }} {% trans "of" %} {{ submissions.paginator.num_pages }}
+              </span>
+
+              {% if submissions.has_next %}
+                <a href="?page={{ submissions.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}"
+                   class="px-3 py-2 text-sm font-medium text-card-foreground bg-background hover:bg-muted border border-border rounded-lg transition-colors">
+                  <i class="fa fa-chevron-right"></i>
+                </a>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="p-12 text-center text-muted-foreground">
+          <i class="fa fa-clipboard text-4xl mb-4 opacity-50"></i>
+          <p class="text-lg font-medium">{% trans "No submissions yet" %}</p>
+          <p class="text-sm mt-2">{% trans "This user hasn't submitted any projects" %}</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Right Sidebar -->
+    <div class="lg:col-span-1 space-y-6">
+
+      <!-- Project Access Card -->
+      <div class="bg-card rounded-xl border border-border shadow-sm sticky top-6">
+        <div class="p-4 border-b border-border">
+          <h3 class="text-base font-semibold text-card-foreground">{% trans "Project Access" %}</h3>
+          <p class="text-xs text-muted-foreground mt-1">{% trans "Assigned projects" %}</p>
+        </div>
+
+        <div class="p-4">
+          {% if not is_dashboard_viewer %}
+          <button @click="showAssignModal = true"
+                  class="w-full inline-flex items-center justify-center px-3 py-2 rounded-lg shadow-sm text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-all duration-200 mb-4">
+            <i class="fa fa-plus w-4 h-4 mr-2"></i>
+            {% trans "Assign Project" %}
+          </button>
+          {% endif %}
+
+          <div class="space-y-2 max-h-96 overflow-y-auto">
+            <template x-for="invitation in invitations" :key="invitation.id">
+              <div class="border border-border rounded-lg p-3 hover:bg-muted/30 transition-colors">
+                <div class="flex items-start justify-between gap-2 mb-1">
+                  <a :href="'/survey/' + invitation.survey.id + '/'"
+                     class="text-sm font-medium text-card-foreground hover:text-primary hover:underline flex-1"
+                     x-text="invitation.survey.title"></a>
+                  {% if not is_dashboard_viewer %}
+                  <button @click="removeSurveyAccess(invitation.id)"
+                          :disabled="isRemoving"
+                          class="text-destructive hover:text-destructive/80 transition-colors flex-shrink-0"
+                          title="{% trans 'Remove access' %}">
+                    <i class="fa fa-times text-sm"></i>
+                  </button>
+                  {% endif %}
+                </div>
+                <div class="flex items-center justify-between text-xs text-muted-foreground">
+                  <span x-text="formatDate(invitation.invited_at)"></span>
+                  <template x-if="invitation.is_active">
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-green-500/10 text-green-700">
+                      <i class="fa fa-check text-[8px]"></i>
+                      {% trans "Active" %}
+                    </span>
+                  </template>
+                </div>
+              </div>
+            </template>
+
+            <div x-show="invitations.length === 0" class="text-center py-6 text-muted-foreground">
+              <i class="fa fa-folder-open text-2xl mb-2 opacity-50"></i>
+              <p class="text-xs">{% trans "No project access" %}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- User Role Info -->
+      <div class="bg-card rounded-xl border border-border shadow-sm p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-base font-semibold text-card-foreground">{% trans "User Role" %}</h3>
+          <!-- Only show Change button if: 1) Current user is admin OR 2) Current user is manager and viewing non-admin user -->
+              {% if not is_dashboard_viewer %}
+              {% if request.user.is_superuser or not user_obj.is_superuser %}
+          <button @click="showChangeRoleModal = true"
+                  class="text-primary hover:text-primary/80 text-sm font-medium">
+            <i class="fa fa-edit mr-1"></i>
+            {% trans "Change" %}
+          </button>
+              {% endif %}
+          {% endif %}
+        </div>
+        <div class="space-y-2">
+          {% if user_obj.is_superuser %}
+          <div class="flex items-center gap-2 text-sm">
+            <i class="fa fa-shield-alt text-primary"></i>
+            <span class="text-card-foreground font-medium">{% trans "Admin User" %}</span>
+          </div>
+          <p class="text-xs text-muted-foreground">{% trans "Full system access" %}</p>
+          {% if not request.user.is_superuser %}
+          <div class="mt-2 p-2 bg-muted/50 rounded-md">
+            <p class="text-xs text-muted-foreground">
+              <i class="fa fa-info-circle mr-1"></i>
+              {% trans "Only admins can modify admin user roles" %}
+            </p>
+          </div>
+          {% endif %}
+          {% elif viewed_user_is_manager %}
+          <div class="flex items-center gap-2 text-sm">
+            <i class="fa fa-user-tie text-blue-600"></i>
+            <span class="text-card-foreground font-medium">{% trans "Manager" %}</span>
+          </div>
+          <p class="text-xs text-muted-foreground">{% trans "Access to submissions and user management" %}</p>
+          {% elif viewed_user_is_supervisor %}
+          <div class="flex items-center gap-2 text-sm">
+            <i class="fa fa-eye text-green-600"></i>
+            <span class="text-card-foreground font-medium">{% trans "Supervisor" %}</span>
+          </div>
+          <p class="text-xs text-muted-foreground">{% trans "Read-only access to all submissions" %}</p>
+          {% elif viewed_user_is_dashboard_viewer %}
+          <div class="flex items-center gap-2 text-sm">
+            <i class="fa fa-bar-chart text-amber-600"></i>
+            <span class="text-card-foreground font-medium">{% trans "Readonly Admin User" %}</span>
+          </div>
+          <p class="text-xs text-muted-foreground">{% trans "Read-only access to all dashboard pages" %}</p>
+          {% else %}
+          <div class="flex items-center gap-2 text-sm">
+            <i class="fa fa-user text-muted-foreground"></i>
+            <span class="text-card-foreground font-medium">{% trans "Add (Mobile app users)" %}</span>
+          </div>
+          <p class="text-xs text-muted-foreground">{% trans "Access to assigned projects only" %}</p>
+          {% endif %}
+        </div>
+      </div>
+
+      {% if can_change_user_password %}
+      <!-- Change Password Card -->
+      <div class="bg-card rounded-xl border border-border shadow-sm p-4">
+        <h3 class="text-base font-semibold text-card-foreground mb-3">{% trans "Change Password" %}</h3>
+        <p class="text-xs text-muted-foreground mb-4">
+          {% blocktrans with username=user_obj.username %}Set a new password for @{{ username }}.{% endblocktrans %}
+        </p>
+        <button type="button"
+                @click="$dispatch('open-change-password', { mode: 'admin', username: '{{ user_obj.username|escapejs }}', actionUrl: '{% url 'survey:change_user_password' user_obj.id %}' })"
+                class="w-full inline-flex items-center justify-center px-4 py-2 rounded-lg shadow-sm text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring transition-all duration-200">
+          <i class="fa fa-lock w-4 h-4 mr-2"></i>
+          {% trans "Change Password" %}
+        </button>
+      </div>
+      {% endif %}
+
+      {% if not is_dashboard_viewer %}
+      <!-- Delete User Card -->
+      <div class="bg-card rounded-xl border border-destructive/20 shadow-sm p-4">
+        <h3 class="text-base font-semibold text-card-foreground mb-3">{% trans "Danger Zone" %}</h3>
+        <p class="text-xs text-muted-foreground mb-4">{% trans "Once you delete a user, there is no going back. Please be certain." %}</p>
+        <form id="deleteUserForm" method="post" action="{% url 'survey:delete_user' user_obj.id %}">
+          {% csrf_token %}
+          <button type="button"
+                  @click="confirmDeleteUser()"
+                  class="w-full inline-flex items-center justify-center px-4 py-2 rounded-lg shadow-sm text-sm font-medium text-white bg-destructive hover:bg-destructive/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-destructive transition-all duration-200">
+            <i class="fa fa-trash w-4 h-4 mr-2"></i>
+            {% trans "Delete User" %}
+          </button>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Assign Project Modal -->
+  <div x-show="showAssignModal"
+       x-cloak
+       class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+       @click.self="showAssignModal = false">
+    <div class="bg-card rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-hidden"
+         @click.stop
+         x-trap="showAssignModal">
+
+      <!-- Modal Header -->
+      <div class="px-6 py-4 bg-gradient-to-r from-primary/10 to-accent/10 border-b">
+        <div class="flex items-center justify-between">
+          <h3 class="text-xl font-semibold text-card-foreground">{% trans "Assign to Project" %}</h3>
+          <button @click="showAssignModal = false"
+                  class="text-muted-foreground hover:text-card-foreground p-2 rounded-lg hover:bg-muted transition-colors">
+            <i class="fa fa-times"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Modal Content -->
+      <div class="p-6 max-h-[calc(90vh-8rem)] overflow-y-auto">
+
+        <!-- Search Input -->
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-card-foreground mb-2">{% trans "Search Projects" %}</label>
+          <div class="relative">
+            <input type="text"
+                   x-model="searchQuery"
+                   @input="searchSurveys()"
+                   placeholder="{% trans 'Search by project title...' %}"
+                   class="w-full px-4 py-3 pl-10 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-background text-foreground">
+            <i class="fa fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground"></i>
+          </div>
+        </div>
+
+        <!-- Search Results -->
+        <div x-show="searchResults.length > 0 && !isSearching" class="space-y-2 max-h-96 overflow-y-auto">
+          <div class="text-xs text-muted-foreground mb-2 px-1">
+            <span x-text="searchResults.length"></span> {% trans "project(s) available" %}
+          </div>
+          <template x-for="survey in searchResults" :key="survey.id">
+            <div class="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors">
+              <div class="flex-1">
+                <div class="font-medium text-card-foreground" x-text="survey.title"></div>
+                <div class="text-sm text-muted-foreground" x-text="survey.description"></div>
+                <div class="text-xs text-muted-foreground mt-1">
+                  <span x-text="survey.visibility"></span> •
+                  {% trans "Created by" %}: <span x-text="survey.created_by"></span>
+                </div>
+              </div>
+              <button @click="assignToSurvey(survey.id)"
+                      :disabled="isLoading"
+                      class="px-3 py-1 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 text-sm ml-3">
+                <span x-show="!isLoading">{% trans "Assign" %}</span>
+                <span x-show="isLoading">
+                  <i class="fa fa-spinner fa-spin"></i>
+                </span>
+              </button>
+            </div>
+          </template>
+        </div>
+
+        <!-- No Results -->
+        <div x-show="searchResults.length === 0 && !isSearching"
+             class="text-center py-8 text-muted-foreground">
+          <i class="fa fa-folder-open text-2xl mb-2"></i>
+          <p>{% trans "No projects available for assignment" %}</p>
+        </div>
+
+        <!-- Search Loading -->
+        <div x-show="isSearching" class="text-center py-8 text-muted-foreground">
+          <i class="fa fa-spinner fa-spin text-2xl mb-2"></i>
+          <p>{% trans "Loading projects..." %}</p>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="px-6 py-4 bg-muted/30 border-t">
+        <div class="flex items-center justify-end gap-3">
+          <button @click="showAssignModal = false"
+                  class="px-4 py-2 text-muted-foreground hover:text-card-foreground transition-colors">
+            {% trans "Close" %}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirmation Modal -->
+  <div x-show="showConfirmModal"
+       x-cloak
+       class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+       @click.self="cancelConfirm()">
+    <div class="bg-card rounded-xl shadow-2xl max-w-md w-full overflow-hidden"
+         @click.stop
+         x-trap="showConfirmModal">
+
+      <!-- Modal Header -->
+      <div class="px-6 py-4 bg-destructive/10 border-b border-destructive/20">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full bg-destructive/20 flex items-center justify-center flex-shrink-0">
+            <i class="fa fa-exclamation-triangle text-destructive text-lg"></i>
+          </div>
+          <h3 class="text-xl font-semibold text-card-foreground" x-text="confirmTitle"></h3>
+        </div>
+      </div>
+
+      <!-- Modal Content -->
+      <div class="p-6">
+        <p class="text-muted-foreground" x-text="confirmMessage"></p>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="px-6 py-4 bg-muted/30 border-t flex items-center justify-end gap-3">
+        <button @click="cancelConfirm()"
+                class="px-4 py-2 rounded-lg text-sm font-medium text-card-foreground bg-background hover:bg-muted border border-border transition-colors">
+          {% trans "Cancel" %}
+        </button>
+        <button @click="proceedConfirm()"
+                class="px-4 py-2 rounded-lg text-sm font-medium text-white bg-destructive hover:bg-destructive/90 transition-colors">
+          <i class="fa fa-check mr-2"></i>
+          <span x-text="confirmButtonText"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Change Role Modal -->
+  <div x-show="showChangeRoleModal"
+       x-cloak
+       class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+       @click.self="showChangeRoleModal = false">
+    <div class="bg-card rounded-xl shadow-2xl max-w-md w-full overflow-hidden"
+         @click.stop
+         x-trap="showChangeRoleModal">
+
+      <!-- Modal Header -->
+      <div class="px-6 py-4 bg-gradient-to-r from-primary/10 to-accent/10 border-b">
+        <div class="flex items-center justify-between">
+          <h3 class="text-xl font-semibold text-card-foreground">{% trans "Change User Role" %}</h3>
+          <button @click="showChangeRoleModal = false"
+                  class="text-muted-foreground hover:text-card-foreground p-2 rounded-lg hover:bg-muted transition-colors">
+            <i class="fa fa-times"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Modal Content -->
+      <div class="p-6">
+        <div class="space-y-4">
+          <p class="text-sm text-muted-foreground mb-4">
+            {% trans "Select the new role for" %} <strong>{{ user_obj.get_full_name|default:user_obj.username }}</strong>
+          </p>
+
+          <!-- Role Options -->
+          <div class="space-y-3">
+            <!-- Row 1: Admin + Readonly Admin User -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <!-- Admin Role (Only visible to Admins) -->
+              {% if request.user.is_superuser %}
+              <label class="flex items-start gap-3 p-3 border border-border rounded-lg cursor-pointer hover:bg-accent/50 transition-colors">
+                <input type="radio" name="new_role" value="admin" x-model="newRole"
+                       class="form-check-input mt-1" {% if user_obj.is_superuser %}checked{% endif %}>
+                <div class="flex-1">
+                  <div class="font-medium text-card-foreground">{% trans "Admin User" %}</div>
+                  <div class="text-xs text-muted-foreground">{% trans "Full access to all projects, submissions, and system settings" %}</div>
+                </div>
+              </label>
+              {% endif %}
+
+              <!-- Readonly Admin User Role -->
+              <label class="flex items-start gap-3 p-3 border border-border rounded-lg cursor-pointer hover:bg-accent/50 transition-colors">
+                <input type="radio" name="new_role" value="dashboard_viewer" x-model="newRole"
+                       class="form-check-input mt-1" {% if viewed_user_is_dashboard_viewer %}checked{% endif %}>
+                <div class="flex-1">
+                  <div class="font-medium text-card-foreground">{% trans "Readonly Admin User" %}</div>
+                  <div class="text-xs text-muted-foreground">{% trans "Read-only access to all dashboard pages" %}</div>
+                </div>
+              </label>
+            </div>
+
+            <!-- Row 2: Manager + Supervisor + Add (Mobile app users) -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <!-- Manager Role -->
+              <label class="flex items-start gap-3 p-3 border border-border rounded-lg cursor-pointer hover:bg-accent/50 transition-colors">
+                <input type="radio" name="new_role" value="manager" x-model="newRole"
+                       class="form-check-input mt-1" {% if viewed_user_is_manager and not user_obj.is_superuser %}checked{% endif %}>
+                <div class="flex-1">
+                  <div class="font-medium text-card-foreground">{% trans "Manager" %}</div>
+                  <div class="text-xs text-muted-foreground">{% trans "Access to submissions and user management only" %}</div>
+                </div>
+              </label>
+
+              <!-- Supervisor Role -->
+              <label class="flex items-start gap-3 p-3 border border-border rounded-lg cursor-pointer hover:bg-accent/50 transition-colors">
+                <input type="radio" name="new_role" value="supervisor" x-model="newRole"
+                       class="form-check-input mt-1" {% if viewed_user_is_supervisor %}checked{% endif %}>
+                <div class="flex-1">
+                  <div class="font-medium text-card-foreground">{% trans "Supervisor" %}</div>
+                  <div class="text-xs text-muted-foreground">{% trans "Read-only access to all submissions" %}</div>
+                </div>
+              </label>
+
+              <!-- Add (Mobile app users) Role -->
+              <label class="flex items-start gap-3 p-3 border border-border rounded-lg cursor-pointer hover:bg-accent/50 transition-colors">
+                <input type="radio" name="new_role" value="normal" x-model="newRole"
+                       class="form-check-input mt-1" {% if not user_obj.is_superuser and not viewed_user_is_manager and not viewed_user_is_supervisor and not viewed_user_is_dashboard_viewer %}checked{% endif %}>
+                <div class="flex-1">
+                  <div class="font-medium text-card-foreground">{% trans "Add (Mobile app users)" %}</div>
+                  <div class="text-xs text-muted-foreground">{% trans "Access to assigned projects only" %}</div>
+                </div>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="px-6 py-4 bg-muted/30 border-t flex items-center justify-end gap-3">
+        <button @click="showChangeRoleModal = false"
+                class="px-4 py-2 rounded-lg text-sm font-medium text-card-foreground bg-background hover:bg-muted border border-border transition-colors">
+          {% trans "Cancel" %}
+        </button>
+        <button @click="changeUserRole()"
+                :disabled="isChangingRole"
+                class="px-4 py-2 rounded-lg text-sm font-medium text-white bg-primary hover:bg-primary/90 disabled:opacity-50 transition-colors">
+          <span x-show="!isChangingRole">
+            <i class="fa fa-check mr-2"></i>
+            {% trans "Change Role" %}
+          </span>
+          <span x-show="isChangingRole">
+            <i class="fa fa-spinner fa-spin mr-2"></i>
+            {% trans "Changing..." %}
+          </span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{{ invitations_data|json_script:"invitations-data" }}
+
+<script>
+function userSurveyManager() {
+  return {
+    showAssignModal: false,
+    showConfirmModal: false,
+    showChangeRoleModal: false,
+    // If current user is manager and viewing an admin, default to manager role (can't change to admin)
+    newRole: '{% if user_obj.is_superuser %}{% if request.user.is_superuser %}admin{% else %}manager{% endif %}{% elif viewed_user_is_manager %}manager{% elif viewed_user_is_supervisor %}supervisor{% elif viewed_user_is_dashboard_viewer %}dashboard_viewer{% else %}normal{% endif %}',
+    isChangingRole: false,
+    confirmTitle: '',
+    confirmMessage: '',
+    confirmButtonText: '',
+    confirmCallback: null,
+    searchQuery: '',
+    searchResults: [],
+    allSurveys: [],
+    isSearching: false,
+    isLoading: false,
+    isRemoving: false,
+    invitations: JSON.parse(document.getElementById('invitations-data').textContent),
+    userId: {{ user_obj.id }},
+    searchTimeout: null,
+
+    init() {
+      // Watch for modal open and load surveys
+      this.$watch('showAssignModal', (value) => {
+        if (value && this.allSurveys.length === 0) {
+          this.loadAllSurveys();
+        }
+      });
+    },
+
+    formatDate(dateStr) {
+      if (!dateStr) return '';
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    },
+
+    showConfirm(title, message, buttonText, callback) {
+      this.confirmTitle = title;
+      this.confirmMessage = message;
+      this.confirmButtonText = buttonText;
+      this.confirmCallback = callback;
+      this.showConfirmModal = true;
+    },
+
+    cancelConfirm() {
+      this.showConfirmModal = false;
+      this.confirmCallback = null;
+    },
+
+    proceedConfirm() {
+      this.showConfirmModal = false;
+      if (this.confirmCallback) {
+        this.confirmCallback();
+        this.confirmCallback = null;
+      }
+    },
+
+    async loadAllSurveys() {
+      this.isSearching = true;
+      try {
+        const response = await fetch(`/survey/api/user/${this.userId}/search-surveys/`);
+        const data = await response.json();
+        if (data.status === 'success') {
+          this.allSurveys = data.surveys;
+          this.searchResults = data.surveys;
+        } else {
+          console.error(data.message);
+        }
+      } catch (error) {
+        console.error('Error loading surveys:', error);
+      } finally {
+        this.isSearching = false;
+      }
+    },
+
+    searchSurveys() {
+      if (this.searchTimeout) {
+        clearTimeout(this.searchTimeout);
+      }
+
+      this.searchTimeout = setTimeout(() => {
+        const query = this.searchQuery.toLowerCase().trim();
+
+        if (!query) {
+          // Show all surveys if search is empty
+          this.searchResults = this.allSurveys;
+        } else {
+          // Filter surveys based on search query
+          this.searchResults = this.allSurveys.filter(survey =>
+            survey.title.toLowerCase().includes(query) ||
+            (survey.description && survey.description.toLowerCase().includes(query))
+          );
+        }
+      }, 300);
+    },
+
+    async assignToSurvey(surveyId) {
+      this.isLoading = true;
+      try {
+        const response = await fetch(`/survey/api/user/${this.userId}/assign-survey/`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || '{{ csrf_token }}'
+          },
+          body: JSON.stringify({ survey_id: surveyId })
+        });
+        const data = await response.json();
+
+        if (data.status === 'success') {
+          // Add the new invitation to the list
+          const survey = this.searchResults.find(s => s.id === surveyId);
+          this.invitations.push({
+            id: data.invitation.id,
+            survey: {
+              id: surveyId,
+              title: survey ? survey.title : data.invitation.survey.title
+            },
+            invited_by: data.invitation.invited_by,
+            invited_at: data.invitation.invited_at,
+            is_active: true
+          });
+
+          // Remove the assigned survey from search results
+          this.searchResults = this.searchResults.filter(s => s.id !== surveyId);
+
+          // Show success message
+          if (typeof showAlert === 'function') {
+            showAlert(data.message, 'success');
+          } else {
+            alert(data.message);
+          }
+        } else {
+          if (typeof showAlert === 'function') {
+            showAlert(data.message, 'error');
+          } else {
+            alert(data.message);
+          }
+        }
+      } catch (error) {
+        console.error('Error assigning user to survey:', error);
+        if (typeof showAlert === 'function') {
+          showAlert('An error occurred while assigning the user to the survey', 'error');
+        } else {
+          alert('An error occurred while assigning the user to the survey');
+        }
+      } finally {
+        this.isLoading = false;
+      }
+    },
+
+    removeSurveyAccess(invitationId) {
+      this.showConfirm(
+        '{% trans "Remove Project Access" %}',
+        '{% trans "Are you sure you want to remove this project access? This action cannot be undone." %}',
+        '{% trans "Remove Access" %}',
+        () => this.performRemoveSurveyAccess(invitationId)
+      );
+    },
+
+    async performRemoveSurveyAccess(invitationId) {
+      this.isRemoving = true;
+      try {
+        const response = await fetch(`/survey/api/user/${this.userId}/remove-survey-access/${invitationId}/`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || '{{ csrf_token }}'
+          }
+        });
+        const data = await response.json();
+
+        if (data.status === 'success') {
+          // Remove the invitation from the list
+          this.invitations = this.invitations.filter(inv => inv.id !== invitationId);
+
+          // Show success message
+          if (typeof showAlert === 'function') {
+            showAlert(data.message, 'success');
+          } else {
+            alert(data.message);
+          }
+        } else {
+          if (typeof showAlert === 'function') {
+            showAlert(data.message, 'error');
+          } else {
+            alert(data.message);
+          }
+        }
+      } catch (error) {
+        console.error('Error removing survey access:', error);
+        if (typeof showAlert === 'function') {
+          showAlert('An error occurred while removing survey access', 'error');
+        } else {
+          alert('An error occurred while removing survey access');
+        }
+      } finally {
+        this.isRemoving = false;
+      }
+    },
+
+    async changeUserRole() {
+      this.isChangingRole = true;
+      try {
+        const response = await fetch(`/survey/api/user/${this.userId}/change-role/`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || '{{ csrf_token }}'
+          },
+          body: JSON.stringify({ role: this.newRole })
+        });
+        const data = await response.json();
+
+        if (data.status === 'success') {
+          // Show success message
+          if (typeof showAlert === 'function') {
+            showAlert(data.message, 'success');
+          } else {
+            alert(data.message);
+          }
+
+          // Reload the page to reflect the new role
+          setTimeout(() => {
+            window.location.reload();
+          }, 1000);
+        } else {
+          if (typeof showAlert === 'function') {
+            showAlert(data.message, 'error');
+          } else {
+            alert(data.message);
+          }
+        }
+      } catch (error) {
+        console.error('Error changing user role:', error);
+        if (typeof showAlert === 'function') {
+          showAlert('An error occurred while changing user role', 'error');
+        } else {
+          alert('An error occurred while changing user role');
+        }
+      } finally {
+        this.isChangingRole = false;
+        this.showChangeRoleModal = false;
+      }
+    },
+
+    confirmDeleteUser() {
+      this.showConfirm(
+        '{% trans "Delete User" %}',
+        '{% trans "Are you sure you want to delete this user? This action cannot be undone. All their data and submissions will be permanently removed." %}',
+        '{% trans "Delete User" %}',
+        () => {
+          document.getElementById('deleteUserForm').submit();
+        }
+      );
+    }
+  };
+}
+</script>
+{% endblock %}

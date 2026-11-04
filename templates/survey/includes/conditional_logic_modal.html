@@ -1,0 +1,180 @@
+<!-- Conditional Logic Modal -->
+<template x-if="showConditionModal">
+  <div class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+       @click.self="showConditionModal = false">
+    <div class="bg-card rounded-lg shadow-lg max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between p-6 border-b border-border">
+        <h2 class="text-xl font-semibold text-card-foreground">Conditional Logic</h2>
+        <button @click="showConditionModal = false"
+                class="p-2 text-muted-foreground hover:text-destructive rounded-full transition-colors">
+          <i class="fa fa-times"></i>
+        </button>
+      </div>
+      
+      <!-- Modal Content -->
+      <div class="flex-1 overflow-y-auto p-6">
+        <template x-if="conditionModal.question">
+          <div>
+            <!-- Conditional Logic Toggle -->
+            <div class="mb-6">
+              <label class="flex items-center gap-3">
+                <input type="checkbox"
+                       x-model="conditionModal.question.is_conditional"
+                       @change="toggleConditionalLogic(conditionModal.question.id, $event.target.checked)"
+                       class="w-4 h-4">
+                <span class="text-card-foreground font-medium">Enable conditional logic for this question</span>
+              </label>
+              <p class="text-sm text-muted-foreground mt-2">
+                Show this question only when specific conditions are met
+              </p>
+            </div>
+            
+            <!-- Conditions List -->
+            <template x-if="conditionModal.conditions.length > 0">
+              <div class="mb-6">
+                <h3 class="text-lg font-medium text-card-foreground mb-4">Current Conditions</h3>
+                <div class="space-y-3">
+                  <template x-for="(condition, index) in conditionModal.conditions" :key="condition.id || index">
+                    <div class="bg-muted p-4 rounded-lg border border-border">
+                      <div class="flex items-center justify-between mb-3">
+                        <span class="text-sm font-medium text-card-foreground">
+                          Condition #<span x-text="index + 1"></span>
+                        </span>
+                        <button @click="deleteCondition(condition.id, index)"
+                                class="p-1 text-destructive hover:bg-destructive/10 rounded transition-colors"
+                                title="Delete Condition">
+                          <i class="fa fa-trash text-xs"></i>
+                        </button>
+                      </div>
+                      <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                        <div>
+                          <span class="text-muted-foreground">If question:</span>
+                          <div class="font-medium" x-text="getQuestionText(condition.target_question)"></div>
+                        </div>
+                        <div>
+                          <span class="text-muted-foreground">Condition:</span>
+                          <div class="font-medium" x-text="getConditionDisplay(condition.condition_type)"></div>
+                        </div>
+                        <template x-if="condition.value">
+                          <div>
+                            <span class="text-muted-foreground">Value:</span>
+                            <div class="font-medium" x-text="condition.value"></div>
+                          </div>
+                        </template>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </template>
+            
+            <!-- Add New Condition Form -->
+            <template x-if="conditionModal.question.is_conditional">
+              <div class="bg-accent/20 p-4 rounded-lg border border-border">
+                <h3 class="text-lg font-medium text-card-foreground mb-4">Add New Condition</h3>
+                
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <!-- Page Selector -->
+                  <div>
+                    <label class="block text-sm font-medium text-card-foreground mb-2">From page:</label>
+                    <select x-model="conditionModal.selectedPageId"
+                            @change="updateAvailableQuestionsByPage()"
+                            class="w-full border border-border rounded px-3 py-2 bg-card text-card-foreground focus:outline-none focus:border-primary">
+                      <option value="current">Current Page</option>
+                      <option value="all">All Pages</option>
+                      <template x-for="page in conditionModal.availablePages" :key="page.id">
+                        <option :value="page.id" x-text="page.title"></option>
+                      </template>
+                    </select>
+                  </div>
+
+                  <!-- Target Question -->
+                  <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-card-foreground mb-2">If question:</label>
+                    <select x-model="newCondition.target_question_id"
+                            @change="updateValueFieldType($event.target.value)"
+                            class="w-full border border-border rounded px-3 py-2 bg-card text-card-foreground focus:outline-none focus:border-primary">
+                      <option value="">Select a question</option>
+                      <template x-for="q in conditionModal.availableQuestions" :key="q.id">
+                        <option :value="q.id" x-text="q.displayText"></option>
+                      </template>
+                    </select>
+                  </div>
+                  
+                  <!-- Condition Type -->
+                  <div>
+                    <label class="block text-sm font-medium text-card-foreground mb-2">Condition:</label>
+                    <select x-model="newCondition.condition_type"
+                            class="w-full border border-border rounded px-3 py-2 bg-card text-card-foreground focus:outline-none focus:border-primary">
+                      <option value="equals">Equals</option>
+                      <option value="not_equals">Not Equals</option>
+                      <option value="contains">Contains</option>
+                      <option value="not_contains">Not Contains</option>
+                      <option value="greater_than">Greater Than</option>
+                      <option value="less_than">Less Than</option>
+                      <option value="is_empty">Is Empty</option>
+                      <option value="is_not_empty">Is Not Empty</option>
+                    </select>
+                  </div>
+                </div>
+
+                <!-- Value Field (second row for conditions that require it) -->
+                <template x-if="!['is_empty', 'is_not_empty'].includes(newCondition.condition_type)">
+                  <div class="mt-4">
+                    <label class="block text-sm font-medium text-card-foreground mb-2">Value:</label>
+                    <!-- Text input for questions without options -->
+                    <template x-if="!conditionModal.showOptionsDropdown">
+                      <input type="text"
+                             x-model="newCondition.value"
+                             class="w-full border border-border rounded px-3 py-2 bg-card text-card-foreground focus:outline-none focus:border-primary"
+                             placeholder="Enter value">
+                    </template>
+                    <!-- Dropdown for questions with options -->
+                    <template x-if="conditionModal.showOptionsDropdown">
+                      <select x-model="newCondition.value"
+                              class="w-full border border-border rounded px-3 py-2 bg-card text-card-foreground focus:outline-none focus:border-primary">
+                        <option value="">Select value</option>
+                        <template x-for="option in conditionModal.targetQuestionOptions" :key="option.id">
+                          <option :value="option.text" x-text="option.text"></option>
+                        </template>
+                      </select>
+                    </template>
+                  </div>
+                </template>
+                
+                <div class="mt-4 flex justify-end">
+                  <button @click="addCondition()"
+                          :disabled="!isValidNewCondition()"
+                          class="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed">
+                    Save Condition
+                  </button>
+                </div>
+              </div>
+            </template>
+            
+            <!-- No conditions message -->
+            <template x-if="conditionModal.question.is_conditional && conditionModal.conditions.length === 0">
+              <div class="text-center py-8 text-muted-foreground">
+                <i class="fa fa-code-branch text-3xl mb-3"></i>
+                <p>No conditions added yet. Add conditions to control when this question is shown.</p>
+              </div>
+            </template>
+          </div>
+        </template>
+      </div>
+      
+      <!-- Modal Footer -->
+      <div class="flex justify-end gap-3 p-6 border-t border-border">
+        <button @click="showConditionModal = false"
+                class="px-4 py-2 border border-border text-card-foreground rounded hover:bg-accent">
+          Close
+        </button>
+        <button @click="showConditionModal = false"
+                class="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90">
+          Save
+        </button>
+      </div>
+    </div>
+  </div>
+</template>

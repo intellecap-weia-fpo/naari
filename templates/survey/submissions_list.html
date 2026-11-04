@@ -1,0 +1,581 @@
+{% extends "base_app.html" %}
+{% load i18n %}
+{% load static %}
+{% load ist_time %}
+{% load sidebar_tags %}
+{% block title %}Survey Submissions - {{ site_config.site_name }}{% endblock %}
+{% block extra_css %}
+  {{ block.super }}
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/airbnb.css">
+  <style>
+    .date-picker-wrapper { position: relative; }
+    .date-picker-wrapper .calendar-icon {
+      position: absolute; right: 12px; top: 50%;
+      transform: translateY(-50%);
+      color: #6b7280; pointer-events: none;
+    }
+    .flatpickr-input { cursor: pointer !important; }
+  </style>
+{% endblock %}
+{% block main_content %}
+  <div class="space-y-6">
+    <!-- Page Header -->
+    <div class="bg-card rounded-lg border border-border p-6">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 class="text-2xl font-bold text-card-foreground">{% trans "Survey Submissions" %}</h1>
+          <p class="text-sm text-muted-foreground mt-1">{% trans "View and manage all survey responses" %}</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-sm text-muted-foreground">Total Submissions:</span>
+          <span class="text-lg font-semibold text-card-foreground">{{ total_submissions }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Search and Filter Section -->
+    <div class="bg-card rounded-lg border border-border p-6">
+      <form method="get" class="space-y-4">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <!-- Search Input -->
+          <div>
+            <label for="search" class="block text-sm font-medium text-card-foreground mb-2">{% trans "Search" %}</label>
+            <input type="text"
+                   id="search"
+                   name="search"
+                   value="{{ search_query }}"
+                   placeholder="{% trans "Search by user, survey title..." %}"
+                   class="form-control w-full">
+          </div>
+
+          <!-- Survey Filter -->
+          <div>
+            <label for="survey" class="block text-sm font-medium text-card-foreground mb-2">{% trans "Filter by Survey" %}</label>
+            <select id="survey" name="survey" class="form-control w-full">
+              <option value="">{% trans "All Surveys" %}</option>
+              {% for survey in selectable_surveys %}
+                <option value="{{ survey.id }}" {% if survey_filter == survey.id|stringformat:"s" %}selected{% endif %}>
+                  {{ survey.title }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- Status Filter -->
+          <div>
+            <label for="status" class="block text-sm font-medium text-card-foreground mb-2">{% trans "Filter by Status" %}</label>
+            <select id="status" name="status" class="form-control w-full">
+              <option value="">{% trans "All" %}</option>
+              <option value="draft" {% if status_filter == "draft" %}selected{% endif %}>{% trans "Draft" %}</option>
+              <option value="pending" {% if status_filter == "pending" %}selected{% endif %}>{% trans "Pending" %}</option>
+              <option value="completed" {% if status_filter == "completed" %}selected{% endif %}>{% trans "Completed" %}</option>
+            </select>
+          </div>
+
+          <!-- Archive Filter -->
+          <div>
+            <label for="archive" class="block text-sm font-medium text-card-foreground mb-2">{% trans "Filter by Archive" %}</label>
+            <select id="archive" name="archive" class="form-control w-full">
+              <option value="active" {% if archive_filter == "active" %}selected{% endif %}>{% trans "Active" %}</option>
+              <option value="archived" {% if archive_filter == "archived" %}selected{% endif %}>{% trans "Archived" %}</option>
+              <option value="all" {% if archive_filter == "all" %}selected{% endif %}>{% trans "All" %}</option>
+            </select>
+          </div>
+
+          <!-- State Filter -->
+          {% if states %}
+          <div>
+            <label for="state" class="block text-sm font-medium text-card-foreground mb-2">{% trans "Filter by State" %}</label>
+            <select id="state" name="state" class="form-control w-full"
+                    onchange="updateSubmissionsListDistricts(this.value)">
+              <option value="">{% trans "All States" %}</option>
+              {% for state in states %}
+                <option value="{{ state }}" {% if state == state_filter %}selected{% endif %}>{{ state }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          {% endif %}
+
+          <!-- District Filter -->
+          <div>
+            <label for="district" class="block text-sm font-medium text-card-foreground mb-2">{% trans "Filter by District" %}</label>
+            <select id="district" name="district" class="form-control w-full">
+              <option value="">{% trans "All Districts" %}</option>
+              {% for district in districts %}
+                <option value="{{ district }}" {% if district == district_filter %}selected{% endif %}>{{ district }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- CLF Filter -->
+          {% if clfs %}
+          <div>
+            <label for="clf" class="block text-sm font-medium text-card-foreground mb-2">{% trans "Filter by CLF" %}</label>
+            <select id="clf" name="clf" class="form-control w-full">
+              <option value="">{% trans "All CLFs" %}</option>
+              {% for clf in clfs %}
+                <option value="{{ clf }}" {% if clf == clf_filter %}selected{% endif %}>{{ clf }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          {% endif %}
+
+          <!-- Quick Date Range -->
+          <div>
+            <label for="date_preset" class="block text-sm font-medium text-card-foreground mb-2">{% trans "Quick Date Range" %}</label>
+            <select id="date_preset" name="date_preset" onchange="applySubmissionsDatePreset(this.value)" class="form-control w-full">
+              <option value="" {% if not date_preset %}selected{% endif %}>{% trans "Custom Range" %}</option>
+              <option value="today" {% if date_preset == "today" %}selected{% endif %}>{% trans "Today" %}</option>
+              <option value="last_7_days" {% if date_preset == "last_7_days" %}selected{% endif %}>{% trans "Last 7 Days" %}</option>
+              <option value="last_30_days" {% if date_preset == "last_30_days" %}selected{% endif %}>{% trans "Last 30 Days" %}</option>
+              <option value="last_3_months" {% if date_preset == "last_3_months" %}selected{% endif %}>{% trans "Last 3 Months" %}</option>
+              <option value="last_6_months" {% if date_preset == "last_6_months" %}selected{% endif %}>{% trans "Last 6 Months" %}</option>
+              <option value="last_year" {% if date_preset == "last_year" %}selected{% endif %}>{% trans "Last Year" %}</option>
+              <option value="year_to_date" {% if date_preset == "year_to_date" %}selected{% endif %}>{% trans "Year to Date" %}</option>
+              <option value="all_time" {% if date_preset == "all_time" %}selected{% endif %}>{% trans "All Time" %}</option>
+            </select>
+          </div>
+
+          <!-- Date From -->
+          <div>
+            <label for="date_from" class="block text-sm font-medium text-card-foreground mb-2">{% trans "From Date & Time" %}</label>
+            <div class="date-picker-wrapper">
+              <input type="text"
+                     id="date_from"
+                     name="date_from"
+                     value="{{ date_from }}"
+                     class="form-control w-full flatpickr-input"
+                     placeholder="{% trans 'Select start date & time' %}"
+                     readonly="readonly">
+              <i class="fa fa-calendar calendar-icon"></i>
+            </div>
+          </div>
+
+          <!-- Date To -->
+          <div>
+            <label for="date_to" class="block text-sm font-medium text-card-foreground mb-2">{% trans "To Date & Time" %}</label>
+            <div class="date-picker-wrapper">
+              <input type="text"
+                     id="date_to"
+                     name="date_to"
+                     value="{{ date_to }}"
+                     class="form-control w-full flatpickr-input"
+                     placeholder="{% trans 'Select end date & time' %}"
+                     readonly="readonly">
+              <i class="fa fa-calendar calendar-icon"></i>
+            </div>
+          </div>
+
+          <!-- Page Size -->
+          <div>
+            <label for="page_size" class="block text-sm font-medium text-card-foreground mb-2">{% trans "Page Size" %}</label>
+            <select id="page_size" name="page_size" class="form-control w-full">
+              <option value="10" {% if page_size == "10" %}selected{% endif %}>10</option>
+              <option value="20" {% if page_size == "20" %}selected{% endif %}>20</option>
+              <option value="25" {% if page_size == "25" %}selected{% endif %}>25</option>
+              <option value="50" {% if page_size == "50" %}selected{% endif %}>50</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="flex gap-2 flex-wrap">
+          <button type="submit" class="flex items-center px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
+            <i class="fa fa-search mr-2"></i>{% trans "Apply Filters" %}
+          </button>
+          <a href="{% url 'survey:submissions_list' %}" class="flex items-center px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/90 transition-colors">
+            <i class="fa fa-times mr-2"></i>{% trans "Clear" %}
+          </a>
+          {% if request.user|get_user_role != 'supervisor' and request.user|get_user_role != 'manager' %}
+          <a href="?{% if search_query %}search={{ search_query }}&{% endif %}{% if survey_filter %}survey={{ survey_filter }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}archive={{ archive_filter }}&{% if page_size %}page_size={{ page_size }}&{% endif %}{% if date_from %}date_from={{ date_from }}&{% endif %}{% if date_to %}date_to={{ date_to }}&{% endif %}{% if state_filter %}state={{ state_filter }}&{% endif %}{% if district_filter %}district={{ district_filter }}&{% endif %}{% if clf_filter %}clf={{ clf_filter }}&{% endif %}show_duplicates={% if show_duplicates %}0{% else %}1{% endif %}"
+             class="flex items-center px-4 py-2 rounded-lg transition-colors
+                    {% if show_duplicates %}
+                      bg-orange-500 text-white hover:bg-orange-600
+                    {% else %}
+                      bg-secondary text-secondary-foreground hover:bg-secondary/90
+                    {% endif %}">
+            <i class="fa fa-clone mr-2"></i>
+            {% if show_duplicates %}{% trans "Hide Duplicates" %}{% else %}{% trans "Show Duplicates" %}{% endif %}
+          </a>
+          {% endif %}
+        </div>
+      </form>
+    </div>
+
+    <!-- Download Button -->
+    <div class="flex items-center gap-4"
+         x-data="exportSubmissions({
+           createUrl: '{% url 'survey:submissions_export_create' %}',
+           filters: {
+             survey: '{{ survey_filter }}',
+             search: '{{ search_query|escapejs }}',
+             archive: '{{ archive_filter }}',
+             status: '{{ status_filter }}',
+             date_from: '{{ date_from }}',
+             date_to: '{{ date_to }}',
+             state: '{{ state_filter|escapejs }}',
+             district: '{{ district_filter|escapejs }}',
+             clf: '{{ clf_filter|escapejs }}',
+             show_duplicates: {% if show_duplicates %}'1'{% else %}''{% endif %}
+           }
+         })">
+      <button
+        @click="start()"
+        :disabled="queueing || !{{ survey_filter|yesno:'true,false' }}"
+        class="flex items-center px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+        <span x-show="!queueing">
+          <i class="fa fa-download mr-2"></i>{% trans "Download Submissions" %}
+        </span>
+        <span x-show="queueing" x-cloak class="flex items-center gap-2">
+          <svg class="animate-spin h-4 w-4 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-opacity="0.25" stroke-width="3"></circle>
+            <path fill="currentColor" d="M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z"></path>
+          </svg>
+          <span>{% trans "Queueing" %}…</span>
+        </span>
+      </button>
+      <select x-model="displayMode" :disabled="queueing" class="form-control" style="width: 100px;">
+        <option value="labels">{% trans "Labels" %}</option>
+        <option value="values">{% trans "Values" %}</option>
+      </select>
+      <span x-show="errorMessage" x-cloak class="text-xs text-destructive" x-text="errorMessage"></span>
+      {% if not survey_filter %}
+        <span class="text-sm text-muted-foreground">
+          {% trans "Select a survey to enable download" %}
+        </span>
+      {% endif %}
+    </div>
+
+    <script>
+    function exportSubmissions(config) {
+      return {
+        queueing: false,
+        errorMessage: '',
+        displayMode: 'labels',
+
+        getCookie(name) {
+          const v = document.cookie.split('; ').find(r => r.startsWith(name + '='));
+          return v ? decodeURIComponent(v.split('=')[1]) : '';
+        },
+
+        async start() {
+          if (this.queueing) return;
+          this.queueing = true;
+          this.errorMessage = '';
+
+          const body = new URLSearchParams();
+          for (const [k, v] of Object.entries(config.filters || {})) {
+            if (v !== undefined && v !== null && v !== '') body.append(k, v);
+          }
+          body.append('display', this.displayMode);
+
+          try {
+            const res = await fetch(config.createUrl, {
+              method: 'POST',
+              headers: {
+                'X-CSRFToken': this.getCookie('csrftoken'),
+                'Content-Type': 'application/x-www-form-urlencoded',
+              },
+              body: body.toString(),
+            });
+            const data = await res.json();
+            if (!res.ok || !data.job_id) {
+              throw new Error(data.error || 'Failed to start export');
+            }
+            // Tell the navbar widget to refresh + pulse so the user sees immediate feedback.
+            window.dispatchEvent(new CustomEvent('exports:refresh', { detail: { bounce: true } }));
+          } catch (err) {
+            this.errorMessage = err.message || String(err);
+          } finally {
+            this.queueing = false;
+          }
+        },
+      };
+    }
+    </script>
+
+    <!-- Submissions Table -->
+    <div class="bg-card rounded-lg border border-border overflow-hidden">
+      {% if page_obj.object_list %}
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead class="bg-muted/50 border-b border-border">
+              <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">{% trans "Survey" %}</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">{% trans "User" %}</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">{% trans "Status" %}</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">{% trans "Submitted At" %}</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">{% trans "IP Address" %}</th>
+                <th class="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">{% trans "Actions" %}</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-border">
+              {% for submission in page_obj.object_list %}
+                <tr class="hover:bg-muted/30 transition-colors">
+                  <td class="px-6 py-4">
+                    <div class="text-sm font-medium text-card-foreground">{{ submission.survey.title }}</div>
+                    <div class="text-xs text-muted-foreground">by {{ submission.survey.created_by.get_full_name|default:submission.survey.created_by.username }}</div>
+                  </td>
+                  <td class="px-6 py-4">
+                    {% if submission.user %}
+                      <div class="text-sm font-medium text-card-foreground">{{ submission.user.get_full_name|default:submission.user.username }}</div>
+                      <div class="text-xs text-muted-foreground">{{ submission.user.email }}</div>
+                    {% else %}
+                      <span class="text-sm text-muted-foreground italic">{% trans "Anonymous" %}</span>
+                    {% endif %}
+                  </td>
+                  <td class="px-6 py-4">
+                    <div class="flex flex-wrap items-center gap-1.5">
+                      <span class="inline-flex px-2 py-1 text-xs font-medium rounded-full
+                        {% if submission.status == 'completed' %}bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200
+                        {% elif submission.status == 'draft' %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200
+                        {% elif submission.status == 'pending' %}bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200
+                        {% else %}bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200{% endif %}">
+                        {{ submission.get_status_display }}
+                      </span>
+                      {% if not submission.answer_count %}
+                      <span class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                            title="{% trans 'This response was started but no answers were recorded.' %}">
+                        <i class="fa fa-exclamation-circle text-[10px]"></i>
+                        {% trans "No answers" %}
+                      </span>
+                      {% endif %}
+                    </div>
+                  </td>
+                  <td class="px-6 py-4">
+                    <div class="text-sm text-card-foreground">{{ submission.submitted_at|ist_date }}</div>
+                    <div class="text-xs text-muted-foreground">{{ submission.submitted_at|ist_time_only }}</div>
+                  </td>
+                  <td class="px-6 py-4">
+                    <span class="text-sm text-card-foreground">{{ submission.ip_address|default:"-" }}</span>
+                  </td>
+                  <td class="px-6 py-4 text-right">
+                    <div class="flex items-center justify-end gap-2">
+                      {% if submission.is_archived %}
+                        <span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                          <i class="fa fa-archive mr-1"></i>{% trans "Archived" %}
+                        </span>
+                      {% endif %}
+                      <a href="{% url 'survey:submission_detail' submission.survey.pk submission.pk %}"
+                         class="inline-flex items-center px-3 py-1.5 text-sm font-medium text-primary hover:text-primary/80 transition-colors">
+                        <i class="fa fa-eye mr-1"></i>{% trans "View" %}
+                      </a>
+                      {% if not is_supervisor %}
+                      <form action="{% url 'survey:toggle_submission_archive' submission.pk %}" method="post" class="inline">
+                        {% csrf_token %}
+                        <input type="hidden" name="search" value="{{ search_query }}">
+                        <input type="hidden" name="survey" value="{{ survey_filter }}">
+                        <input type="hidden" name="status" value="{{ status_filter }}">
+                        <input type="hidden" name="archive" value="{{ archive_filter }}">
+                        <input type="hidden" name="show_duplicates" value="{% if show_duplicates %}1{% endif %}">
+                        <input type="hidden" name="date_from" value="{{ date_from }}">
+                        <input type="hidden" name="date_to" value="{{ date_to }}">
+                        <input type="hidden" name="page_size" value="{{ page_size }}">
+                        <input type="hidden" name="page" value="{{ page_obj.number }}">
+                        <button type="submit"
+                                class="inline-flex items-center px-3 py-1.5 text-sm font-medium transition-colors
+                                       {% if submission.is_archived %}
+                                         text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300
+                                       {% else %}
+                                         text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300
+                                       {% endif %}">
+                          {% if submission.is_archived %}
+                            <i class="fa fa-undo mr-1"></i>{% trans "Restore" %}
+                          {% else %}
+                            <i class="fa fa-archive mr-1"></i>{% trans "Archive" %}
+                          {% endif %}
+                        </button>
+                      </form>
+                      {% endif %}
+                    </div>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        
+        <!-- Pagination -->
+        {% if page_obj.has_other_pages %}
+          <div class="px-6 py-4 border-t border-border">
+            <nav class="flex items-center justify-between">
+              <div class="text-sm text-muted-foreground">
+                Showing {{ page_obj.start_index }} to {{ page_obj.end_index }} of {{ page_obj.paginator.count }} submissions
+              </div>
+              <div class="flex gap-2">
+                {% if page_obj.has_previous %}
+                  <a href="?{% if search_query %}search={{ search_query }}&{% endif %}{% if survey_filter %}survey={{ survey_filter }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}archive={{ archive_filter }}&{% if show_duplicates %}show_duplicates=1&{% endif %}{% if page_size %}page_size={{ page_size }}&{% endif %}{% if date_from %}date_from={{ date_from }}&{% endif %}{% if date_to %}date_to={{ date_to }}&{% endif %}{% if state_filter %}state={{ state_filter }}&{% endif %}{% if district_filter %}district={{ district_filter }}&{% endif %}page={{ page_obj.previous_page_number }}"
+                     class="px-3 py-1 bg-secondary text-secondary-foreground rounded hover:bg-secondary/90 transition-colors">
+                    {% trans "Previous" %}
+                  </a>
+                {% endif %}
+
+                <span class="px-3 py-1 text-card-foreground">
+                  Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+                </span>
+
+                {% if page_obj.has_next %}
+                  <a href="?{% if search_query %}search={{ search_query }}&{% endif %}{% if survey_filter %}survey={{ survey_filter }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}archive={{ archive_filter }}&{% if show_duplicates %}show_duplicates=1&{% endif %}{% if page_size %}page_size={{ page_size }}&{% endif %}{% if date_from %}date_from={{ date_from }}&{% endif %}{% if date_to %}date_to={{ date_to }}&{% endif %}{% if state_filter %}state={{ state_filter }}&{% endif %}{% if district_filter %}district={{ district_filter }}&{% endif %}page={{ page_obj.next_page_number }}"
+                     class="px-3 py-1 bg-secondary text-secondary-foreground rounded hover:bg-secondary/90 transition-colors">
+                    {% trans "Next" %}
+                  </a>
+                {% endif %}
+              </div>
+            </nav>
+          </div>
+        {% endif %}
+      {% else %}
+        <div class="p-12 text-center">
+          <i class="fa fa-inbox text-5xl text-muted-foreground mb-4"></i>
+          <h3 class="text-lg font-medium text-card-foreground mb-2">{% trans "No Submissions Found" %}</h3>
+          <p class="text-sm text-muted-foreground">
+            {% if search_query or survey_filter %}
+              No submissions match your current filters.
+            {% else %}
+              There are no survey submissions yet.
+            {% endif %}
+          </p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <script>
+    function updateSubmissionsListDistricts(stateValue) {
+      const districtSelect = document.getElementById('district');
+      if (!districtSelect) return;
+
+      districtSelect.innerHTML = '<option value="">{% trans "Loading districts..." %}</option>';
+      districtSelect.disabled = true;
+
+      const url = "{% url 'survey:submissions_districts_for_state' %}";
+      const params = new URLSearchParams();
+      if (stateValue) params.append('state', stateValue);
+      const surveyEl = document.getElementById('survey');
+      if (surveyEl && surveyEl.value) params.append('survey', surveyEl.value);
+
+      fetch(url + (params.toString() ? '?' + params.toString() : ''))
+        .then(r => r.json())
+        .then(data => {
+          districtSelect.innerHTML = '<option value="">{% trans "All Districts" %}</option>';
+          (data.districts || []).forEach(d => {
+            const opt = document.createElement('option');
+            opt.value = d;
+            opt.textContent = d;
+            districtSelect.appendChild(opt);
+          });
+        })
+        .catch(err => {
+          console.error('Error fetching districts:', err);
+          districtSelect.innerHTML = '<option value="">{% trans "Error loading districts" %}</option>';
+        })
+        .finally(() => {
+          districtSelect.disabled = false;
+        });
+    }
+  </script>
+{% endblock %}
+
+{% block extra_js %}
+  {{ block.super }}
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script>
+    function initSubmissionsFlatpickrs() {
+      const fpConfig = {
+        enableTime: true,
+        time_24hr: false,
+        dateFormat: 'Y-m-d H:i',
+        altInput: true,
+        altFormat: 'M j, Y h:i K',
+        allowInput: false,
+        theme: 'airbnb'
+      };
+
+      const fromEl = document.getElementById('date_from');
+      const toEl = document.getElementById('date_to');
+      if (!fromEl || !toEl) return;
+      if (fromEl._flatpickr) fromEl._flatpickr.destroy();
+      if (toEl._flatpickr) toEl._flatpickr.destroy();
+
+      flatpickr(fromEl, {
+        ...fpConfig,
+        placeholder: 'Select start date & time',
+        onChange: function (selectedDates) {
+          if (toEl._flatpickr && selectedDates[0]) {
+            toEl._flatpickr.set('minDate', selectedDates[0]);
+          }
+        }
+      });
+
+      flatpickr(toEl, {
+        ...fpConfig,
+        placeholder: 'Select end date & time',
+        onChange: function (selectedDates) {
+          if (fromEl._flatpickr && selectedDates[0]) {
+            fromEl._flatpickr.set('maxDate', selectedDates[0]);
+          }
+        }
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', initSubmissionsFlatpickrs);
+    document.addEventListener('turbo:load', initSubmissionsFlatpickrs);
+    document.addEventListener('turbo:render', initSubmissionsFlatpickrs);
+
+    function applySubmissionsDatePreset(preset) {
+      const fromPickerEl = document.getElementById('date_from')?._flatpickr;
+      const toPickerEl = document.getElementById('date_to')?._flatpickr;
+
+      if (!preset) {
+        // Custom Range — clear pickers so the user can pick fresh values
+        if (fromPickerEl) fromPickerEl.clear();
+        if (toPickerEl) toPickerEl.clear();
+        return;
+      }
+
+      const now = new Date();
+      const to = new Date(now);
+      to.setHours(23, 59, 0, 0);
+      let from = new Date(now);
+      from.setHours(0, 0, 0, 0);
+
+      switch (preset) {
+        case 'today':
+          break;
+        case 'last_7_days':
+          from.setDate(from.getDate() - 7);
+          break;
+        case 'last_30_days':
+          from.setDate(from.getDate() - 30);
+          break;
+        case 'last_3_months':
+          from.setMonth(from.getMonth() - 3);
+          break;
+        case 'last_6_months':
+          from.setMonth(from.getMonth() - 6);
+          break;
+        case 'last_year':
+          from.setFullYear(from.getFullYear() - 1);
+          break;
+        case 'year_to_date':
+          from = new Date(now.getFullYear(), 0, 1);
+          break;
+        case 'all_time':
+          from = null;
+          break;
+      }
+
+      const fromPicker = document.getElementById('date_from')?._flatpickr;
+      const toPicker = document.getElementById('date_to')?._flatpickr;
+
+      if (from) {
+        if (fromPicker) fromPicker.setDate(from);
+      } else {
+        if (fromPicker) fromPicker.clear();
+        if (toPicker) toPicker.clear();
+        return;
+      }
+      if (toPicker) toPicker.setDate(to);
+    }
+  </script>
+{% endblock %}

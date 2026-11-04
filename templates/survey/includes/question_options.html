@@ -1,0 +1,337 @@
+{% load i18n %}
+<!-- Question Options -->
+<div x-data="{
+  newOptionText: '',
+  newOptionValue: '',
+  editingOption: null,
+  showBulkOptions: false,
+  bulkText: '',
+  bulkApplyCondition: false,
+  bulkConditionTargetQuestionId: '',
+  bulkConditionType: 'equals',
+  bulkConditionValue: '',
+  bulkConditionUseOptionsDropdown: false,
+  bulkConditionTargetQuestionOptions: [],
+  // Safely access the root survey builder data
+  getRootData() {
+    const el = document.getElementById('survey-root');
+    return (el && el.__x && el.__x.$data) ? el.__x.$data : null;
+  },
+  getBulkAvailableQuestions() {
+    // Use page of current question to limit available target questions
+    const root = this.getRootData();
+    const page = root && typeof root.findQuestionPage === 'function' ? root.findQuestionPage(question.id) : null;
+    const list = [];
+    if (page && page.questions) {
+      for (const q of page.questions) {
+        if (q.id !== question.id) list.push(q);
+      }
+    }
+    return list;
+  },
+  async loadBulkConditionTargetQuestionOptions(targetId) {
+    this.bulkConditionTargetQuestionOptions = [];
+    this.bulkConditionUseOptionsDropdown = false;
+    this.bulkConditionValue = '';
+    if (!targetId) return;
+    // Always fetch fresh details to determine option availability reliably
+    try {
+      const resp = await fetch(`/survey/api/question/${targetId}/details/`);
+      const data = await resp.json();
+      if (data.status === 'success' && data.question && Array.isArray(data.question.options) && data.question.options.length > 0) {
+        this.bulkConditionTargetQuestionOptions = data.question.options;
+        this.bulkConditionUseOptionsDropdown = true;
+        // Preselect first option text as default value
+        this.bulkConditionValue = data.question.options[0].text || '';
+      } else {
+        this.bulkConditionUseOptionsDropdown = false;
+        this.bulkConditionTargetQuestionOptions = [];
+        // Keep value empty for free-text conditions
+        this.bulkConditionValue = '';
+      }
+    } catch (e) {
+      // On error, fall back to free-text entry
+      this.bulkConditionUseOptionsDropdown = false;
+      this.bulkConditionTargetQuestionOptions = [];
+      this.bulkConditionValue = '';
+    }
+  },
+  async bulkAddOptions(questionId) {
+    const lines = (this.bulkText || '').split('\n').map(l => l.trim()).filter(Boolean);
+    if (lines.length === 0) return;
+    const csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    for (const line of lines) {
+      const parts = line.split('|');
+      const text = (parts[0] || '').trim();
+      const val = (parts[1] || '').trim();
+      if (!text) continue;
+      try {
+        const resp = await fetch(`/survey/api/question/${questionId}/add-option/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+          body: JSON.stringify({ text, value: val })
+        });
+        const data = await resp.json();
+        if (data.status === 'success') {
+          // Push to local state via root survey data
+          const root = this.getRootData();
+          const q = root && typeof root.getQuestionById === 'function' ? root.getQuestionById(questionId) : null;
+          if (q) {
+            if (!Array.isArray(q.options)) q.options = [];
+            q.options.push(data.option);
+          }
+          // Add condition if requested
+          if (this.bulkApplyCondition && this.bulkConditionTargetQuestionId && this.bulkConditionType && (['is_empty','is_not_empty'].includes(this.bulkConditionType) || this.bulkConditionValue)) {
+            await fetch(`/survey/api/option/${data.option.id}/add-condition/`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+              body: JSON.stringify({
+                target_question_id: this.bulkConditionTargetQuestionId,
+                condition_type: this.bulkConditionType,
+                value: ['is_empty','is_not_empty'].includes(this.bulkConditionType) ? '' : this.bulkConditionValue,
+                logic_operator: 'AND'
+              })
+            });
+            // Mark new option as conditional in local state
+            if (q) {
+              const opt = q.options.find(o => o.id === data.option.id);
+              if (opt) opt.is_conditional = true;
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Bulk add option error:', e);
+      }
+    }
+    // Reset and close
+    this.bulkText = '';
+    this.bulkApplyCondition = false;
+    this.bulkConditionTargetQuestionId = '';
+    this.bulkConditionType = 'equals';
+    this.bulkConditionValue = '';
+    this.bulkConditionUseOptionsDropdown = false;
+    this.bulkConditionTargetQuestionOptions = [];
+    this.showBulkOptions = false;
+  }
+}">
+  <!-- Existing Options -->
+  <template x-if="question.options && question.options.length > 0">
+    <div class="space-y-2 mb-4">
+      <template x-for="(option, optIndex) in question.options" :key="option.id">
+        <div class="group flex items-center gap-3 p-3 rounded-lg hover:bg-muted/20 transition-colors">
+          <!-- Option Type Icon -->
+          <div class="flex-shrink-0">
+            <template x-if="question.type === 'radio'">
+              <div class="w-4 h-4 rounded-full border-2 border-primary bg-white"></div>
+            </template>
+            <template x-if="question.type === 'checkbox'">
+              <div class="w-4 h-4 rounded border-2 border-primary bg-white"></div>
+            </template>
+          </div>
+          
+          <!-- Option Text -->
+          <div class="flex-1 min-w-0">
+            <template x-if="editingOption !== option.id">
+              <span class="text-card-foreground" x-text="getDisplayText('option', option.id, option.text)"></span>
+            </template>
+            <template x-if="editingOption === option.id">
+              <input type="text"
+                     :value="option.text"
+                     class="w-full px-2 py-1 bg-background border border-border rounded text-card-foreground focus:outline-none focus:border-primary"
+                     @keydown.enter="updateQuestionOption(option.id, $event.target.value, option.value || ''); editingOption = null"
+                     @keydown.escape="editingOption = null"
+                     @blur="updateQuestionOption(option.id, $event.target.value, option.value || ''); editingOption = null"
+                     x-ref="optionInput">
+            </template>
+            <template x-if="option.option_warning">
+              <span class="ml-2 inline-flex items-center gap-1 text-xs text-amber-600"
+                    :title="(() => {
+                      if (!option.option_warning) return 'Warning configured';
+                      const warnings = [];
+                      const selected = option.option_warning.selected;
+                      const notSelected = option.option_warning.not_selected;
+                      if (selected) warnings.push(`Selected: ${selected.message || option.option_warning_text || ''}`);
+                      if (notSelected) warnings.push(`Not selected: ${notSelected.message || option.option_warning_text || ''}`);
+                      return warnings.length ? warnings.join(' \n') : (option.option_warning_text || 'Warning configured');
+                    })()">
+                <i class="fa fa-exclamation-triangle"></i>
+                Warning
+              </span>
+            </template>
+          </div>
+
+          <!-- Option Value -->
+          <div class="w-48">
+            <input type="text"
+                   x-model="option.value"
+                   class="w-full px-2 py-1 bg-background border border-border rounded text-card-foreground focus:outline-none focus:border-primary"
+                   placeholder="{% trans 'Value (optional)' %}"
+                   @keydown.enter="updateQuestionOption(option.id, option.text, option.value || '')"
+                   @blur="updateQuestionOption(option.id, option.text, option.value || '')">
+          </div>
+          
+          <!-- Translation Status -->
+          <div x-show="hasMultipleLanguages()" class="flex items-center gap-1">
+            <div class="flex gap-1" x-data="{ translatedLangs: getTranslationStatus(option.id, 'option') }">
+              <template x-for="lang in availableLanguages.filter(l => l.code !== '{{ survey.default_language }}')" :key="lang.code">
+                <div class="w-1.5 h-1.5 rounded-full border border-border"
+                     :class="translatedLangs.some(tl => tl.code === lang.code) ? 'bg-green-500' : 'bg-gray-300'"
+                     :title="lang.name + (translatedLangs.some(tl => tl.code === lang.code) ? ' ✓' : ' ✗')">
+                </div>
+              </template>
+            </div>
+            <button @click="editTranslation(option.id, 'option')"
+                    class="p-1 text-muted-foreground hover:text-primary rounded transition-colors"
+                    title="Translate">
+              <i class="fa fa-language text-xs"></i>
+            </button>
+          </div>
+          
+          <!-- Action Buttons -->
+          <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button @click="editingOption = (editingOption === option.id) ? null : option.id; $nextTick(() => editingOption === option.id && $refs.optionInput?.focus())"
+                    class="p-1.5 text-muted-foreground hover:text-primary hover:bg-accent rounded transition-all"
+                    title="Edit Option">
+              <i class="fa fa-edit text-xs"></i>
+            </button>
+            <button @click="manageSubQuestions(option.id, question.id)"
+                    class="p-1.5 text-muted-foreground hover:text-primary hover:bg-accent rounded transition-all"
+                    title="Manage Sub-Questions">
+              <i class="fa fa-list-ul text-xs"></i>
+            </button>
+            <button @click="manageOptionConditions(option.id, question.id)"
+                    class="p-1.5 text-muted-foreground hover:text-primary hover:bg-accent rounded transition-all"
+                    title="Option Conditional Logic">
+              <i class="fa fa-code-fork text-xs"></i>
+            </button>
+            <button @click="manageOptionWarning(option.id, question.id)"
+                    class="p-1.5 rounded transition-all"
+                    :class="option.option_warning ? 'text-amber-600 hover:text-amber-700 hover:bg-amber-100/70' : 'text-muted-foreground hover:text-primary hover:bg-accent'"
+                    :title="option.option_warning ? 'Edit Option Warnings' : 'Add Option Warning'">
+              <i class="fa fa-exclamation-triangle text-xs"></i>
+            </button>
+            <button @click="deleteQuestionOption(option.id, question.id)"
+                    class="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded transition-all"
+                    title="Delete Option">
+              <i class="fa fa-trash text-xs"></i>
+            </button>
+          </div>
+        </div>
+      </template>
+    </div>
+  </template>
+
+  <!-- Add New Option -->
+  <div class="flex items-center gap-3 p-3 border-2 border-dashed border-border hover:border-primary/50 rounded-lg transition-colors">
+    <!-- Option Type Icon -->
+    <div class="flex-shrink-0">
+      <template x-if="question.type === 'radio'">
+        <div class="w-4 h-4 rounded-full border-2 border-muted-foreground/40 bg-muted/30"></div>
+      </template>
+      <template x-if="question.type === 'checkbox'">
+        <div class="w-4 h-4 rounded border-2 border-muted-foreground/40 bg-muted/30"></div>
+      </template>
+    </div>
+    
+    <!-- Add Option Input -->
+    <input x-model="newOptionText"
+           type="text"
+           class="flex-1 px-2 py-1 bg-background border border-border rounded text-card-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary"
+           placeholder="{% trans 'Add option...' %}"
+           @keydown.enter="addQuestionOption(question.id, newOptionText, newOptionValue); newOptionText = ''; newOptionValue = ''"
+           @focus="showOptions = true">
+
+    <!-- New Option Value -->
+    <input x-model="newOptionValue"
+           type="text"
+           class="w-48 px-2 py-1 bg-background border border-border rounded text-card-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary"
+           placeholder="{% trans 'Value (optional)' %}"
+           @keydown.enter="addQuestionOption(question.id, newOptionText, newOptionValue); newOptionText = ''; newOptionValue = ''">
+    
+    <!-- Add Button -->
+    <button @click="addQuestionOption(question.id, newOptionText, newOptionValue); newOptionText = ''; newOptionValue = ''"
+            :disabled="!newOptionText.trim()"
+            class="p-1.5 text-muted-foreground hover:text-primary hover:bg-accent rounded transition-all disabled:opacity-50"
+            title="Add Option">
+      <i class="fa fa-plus text-xs"></i>
+    </button>
+
+    <!-- Bulk Add Button -->
+    <button @click="showBulkOptions = true"
+            class="p-1.5 text-muted-foreground hover:text-primary hover:bg-accent rounded transition-all"
+            title="{% trans 'Bulk Add Options' %}">
+      <i class="fa fa-list text-xs"></i>
+    </button>
+  </div>
+
+  <!-- Bulk Add Modal -->
+  <template x-if="showBulkOptions">
+    <div class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" @click.self="showBulkOptions = false">
+      <div class="bg-card rounded-lg shadow-lg max-w-xl w-full max-h-[80vh] overflow-hidden flex flex-col">
+        <div class="flex items-center justify-between p-4 border-b border-border">
+          <h3 class="text-lg font-semibold text-card-foreground">{% trans "Bulk Add Options" %}</h3>
+          <button @click="showBulkOptions = false" class="p-2 text-muted-foreground hover:text-destructive rounded-full transition-colors"><i class="fa fa-times"></i></button>
+        </div>
+        <div class="p-4 space-y-3">
+          <p class="text-sm text-muted-foreground">{% trans 'Enter one option per line. Optionally provide a value using a pipe, e.g. "Option Text | VALUE".' %}</p>
+          <textarea x-model="bulkText" class="w-full h-56 px-3 py-2 bg-background border border-border rounded text-card-foreground focus:outline-none focus:border-primary" placeholder="e.g.\nYes | 1\nNo | 0\nMaybe"></textarea>
+          <div class="space-y-3">
+            <label class="flex items-center gap-2 text-card-foreground">
+              <input type="checkbox" x-model="bulkApplyCondition" class="w-4 h-4">
+              <span>{% trans "Apply a condition to each new option" %}</span>
+            </label>
+            <template x-if="bulkApplyCondition">
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <label class="block text-sm font-medium text-card-foreground mb-2">{% trans "If question:" %}</label>
+                  <select x-model="bulkConditionTargetQuestionId" @change="loadBulkConditionTargetQuestionOptions($event.target.value)"
+                          class="w-full border border-border rounded px-3 py-2 bg-card text-card-foreground focus:outline-none focus:border-primary">
+                    <option value="">{% trans "Select a question" %}</option>
+                    <template x-for="q in getBulkAvailableQuestions()" :key="q.id">
+                      <option :value="q.id" x-text="(q.order + 1) + '. ' + q.text"></option>
+                    </template>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-card-foreground mb-2">{% trans "Condition:" %}</label>
+                  <select x-model="bulkConditionType" class="w-full border border-border rounded px-3 py-2 bg-card text-card-foreground focus:outline-none focus:border-primary">
+                    <option value="equals">{% trans "Equals" %}</option>
+                    <option value="not_equals">{% trans "Not Equals" %}</option>
+                    <option value="contains">{% trans "Contains" %}</option>
+                    <option value="not_contains">{% trans "Not Contains" %}</option>
+                    <option value="greater_than">{% trans "Greater Than" %}</option>
+                    <option value="less_than">{% trans "Less Than" %}</option>
+                    <option value="is_empty">{% trans "Is Empty" %}</option>
+                    <option value="is_not_empty">{% trans "Is Not Empty" %}</option>
+                  </select>
+                </div>
+                <template x-if="!['is_empty','is_not_empty'].includes(bulkConditionType)">
+                  <div>
+                    <label class="block text-sm font-medium text-card-foreground mb-2">{% trans "Value:" %}</label>
+                    <template x-if="!bulkConditionUseOptionsDropdown">
+                      <input type="text" x-model="bulkConditionValue" class="w-full border border-border rounded px-3 py-2 bg-card text-card-foreground focus:outline-none focus:border-primary" placeholder="{% trans 'Enter value' %}">
+                    </template>
+                    <template x-if="bulkConditionUseOptionsDropdown">
+                      <select x-model="bulkConditionValue" class="w-full border border-border rounded px-3 py-2 bg-card text-card-foreground focus:outline-none focus:border-primary">
+                        <option value="">{% trans "Select value" %}</option>
+                        <template x-for="opt in bulkConditionTargetQuestionOptions" :key="opt.id">
+                          <option :value="opt.text" x-text="opt.text"></option>
+                        </template>
+                      </select>
+                    </template>
+                  </div>
+                </template>
+              </div>
+            </template>
+          </div>
+        </div>
+        <div class="p-4 border-t border-border flex justify-end gap-2">
+          <button @click="showBulkOptions = false" class="px-4 py-2 border border-border text-card-foreground rounded hover:bg-accent">{% trans "Cancel" %}</button>
+          <button @click="bulkAddOptions(question.id)"
+                  :disabled="!(bulkText || '').trim()"
+                  class="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50">{% trans "Add Options" %}</button>
+        </div>
+      </div>
+    </div>
+  </template>
+</div>

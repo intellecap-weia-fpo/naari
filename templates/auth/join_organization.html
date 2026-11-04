@@ -1,0 +1,118 @@
+{% extends "base_auth.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Join Organization" %}{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+  <div class="max-w-md w-full space-y-8">
+    <div class="text-center">
+      <h2 class="mt-6 text-3xl font-bold text-foreground">
+        {% trans "Join Organization" %}
+      </h2>
+      <p class="mt-2 text-sm text-muted-foreground">
+        {% blocktrans %}We found existing organizations that match your email domain: <strong>{{ domain }}</strong>{% endblocktrans %}
+      </p>
+    </div>
+
+    <div class="space-y-6">
+      {% if existing_startups %}
+        <div class="bg-card border border-border rounded-lg p-6">
+          <h3 class="text-lg font-semibold text-card-foreground mb-4">
+            {% trans "Available Organizations" %}
+          </h3>
+          <p class="text-sm text-muted-foreground mb-4">
+            {% trans "These organizations match your email domain and are looking for team members:" %}
+          </p>
+          
+          <form method="post" class="space-y-4">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="join">
+            
+            {% for startup in existing_startups %}
+              <div class="border border-border rounded-lg p-4 hover:border-primary/50 transition-colors">
+                <label class="flex items-start space-x-3 cursor-pointer">
+                  <input type="radio" 
+                         name="startup_id" 
+                         value="{{ startup.id }}"
+                         class="mt-1 h-4 w-4 text-primary border-border focus:ring-primary">
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center space-x-3 mb-2">
+                      {% if startup.logo %}
+                        <img src="{{ startup.logo.url }}" 
+                             alt="{{ startup.name }}" 
+                             class="w-10 h-10 rounded-lg object-cover">
+                      {% else %}
+                        <div class="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+                          <i class="fa fa-building text-primary"></i>
+                        </div>
+                      {% endif %}
+                      <div>
+                        <h4 class="font-semibold text-card-foreground">{{ startup.name }}</h4>
+                        <p class="text-sm text-muted-foreground">{{ startup.enterprise_type|title }}</p>
+                      </div>
+                    </div>
+                    
+                    {% if startup.description %}
+                      <p class="text-sm text-muted-foreground mb-2">
+                        {{ startup.description|truncatewords:20 }}
+                      </p>
+                    {% endif %}
+                    
+                    <div class="flex flex-wrap gap-2">
+                      {% for sector in startup.sectors.all %}
+                        <span class="inline-block px-2 py-1 text-xs bg-secondary text-secondary-foreground rounded-full">
+                          {{ sector.name }}
+                        </span>
+                      {% endfor %}
+                    </div>
+                    
+                    {% if startup.email %}
+                      <p class="text-xs text-muted-foreground mt-2">
+                        <i class="fa fa-envelope mr-1"></i>{{ startup.email }}
+                      </p>
+                    {% endif %}
+                    
+                    {% if startup.website %}
+                      <p class="text-xs text-muted-foreground">
+                        <i class="fa fa-globe mr-1"></i>{{ startup.website }}
+                      </p>
+                    {% endif %}
+                  </div>
+                </label>
+              </div>
+            {% endfor %}
+            
+            <button type="submit" 
+                    class="w-full bg-primary text-primary-foreground py-2 px-4 rounded-lg font-semibold hover:bg-primary/90 transition-colors">
+              {% trans "Join Selected Organization" %}
+            </button>
+          </form>
+        </div>
+      {% endif %}
+
+      <div class="text-center">
+        <p class="text-sm text-muted-foreground mb-4">
+          {% trans "Don't see your organization? You can create a new one." %}
+        </p>
+        
+        <form method="post" class="inline">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="create_new">
+          <button type="submit" 
+                  class="bg-secondary text-secondary-foreground py-2 px-4 rounded-lg font-semibold hover:bg-secondary/80 transition-colors">
+            {% trans "Create New Organization" %}
+          </button>
+        </form>
+      </div>
+
+      <div class="text-center">
+        <a href="{% url 'auth_app:sign_up' %}" 
+           class="text-sm text-muted-foreground hover:text-foreground transition-colors">
+          {% trans "← Back to Sign Up" %}
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

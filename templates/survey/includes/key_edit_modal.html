@@ -1,0 +1,99 @@
+<!-- Key Edit Modal -->
+<div x-show="editingKey" x-cloak x-data="{
+      tempKey: '',
+      suggestedKey: '',
+      duplicate: false,
+      valid: true,
+      slugifyTitle(title) {
+        if (!title) return '';
+        // Convert to lower, replace non-alphanum with underscores, collapse repeats, trim
+        let k = (title || '').toLowerCase()
+          .replace(/[^a-z0-9]+/g, '_')
+          .replace(/^_+|_+$/g, '')
+          .replace(/_+/g, '_');
+        // Ensure starts with letter/underscore
+        if (k && !/^[a-z_]/.test(k)) k = '_' + k;
+        // Max length 50
+        return k.slice(0, 50);
+      },
+      ensureUnique(base) {
+        if (!base) return '';
+        const keys = new Set(getAllKeys(editingKey?.id));
+        if (!keys.has(base)) return base;
+        let i = 2;
+        while (keys.has(`${base}_${i}`)) i++;
+        return `${base}_${i}`;
+      },
+      refreshValidation() {
+        const v = this.tempKey || '';
+        this.valid = /^[A-Za-z_][A-Za-z0-9_]*$/.test(v);
+        this.duplicate = !!v && getAllKeys(editingKey?.id).includes(v);
+      }
+    }"
+     x-init="
+       $watch('editingKey', value => {
+         if (value) {
+           tempKey = value.key || '';
+           const q = getQuestionById(value.id);
+           const text = q ? q.text : '';
+           const base = slugifyTitle(text);
+           suggestedKey = ensureUnique(base);
+           refreshValidation();
+         }
+       });
+       $watch('tempKey', () => refreshValidation());
+     "
+     class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+  <div class="bg-card rounded-lg w-full max-w-md p-6" @click.outside="editingKey = null">
+    <h2 class="text-xl font-semibold text-card-foreground mb-4">Edit Question Key</h2>
+    
+    <div class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-card-foreground mb-1">Question Key</label>
+        <input type="text"
+               x-model="tempKey"
+               class="form-control"
+               placeholder="Enter question key"
+               @keydown.enter="editingKey.key = tempKey; saveKey()">
+        <div class="mt-2 text-xs space-y-2">
+          <template x-if="suggestedKey && (!tempKey || tempKey !== suggestedKey)">
+            <div class="flex items-center gap-2">
+              <span class="text-muted-foreground">Suggested:</span>
+              <code class="px-2 py-0.5 rounded bg-muted text-card-foreground" x-text="suggestedKey"></code>
+              <button type="button"
+                      class="px-2 py-0.5 border border-border rounded hover:bg-accent text-card-foreground"
+                      @click="tempKey = suggestedKey">
+                Use
+              </button>
+            </div>
+          </template>
+          <div>
+            <template x-if="!valid">
+              <span class="text-destructive">Use letters, numbers, underscores; start with a letter or underscore.</span>
+            </template>
+            <template x-if="valid && duplicate">
+              <span class="text-destructive">This key is already used in another question.</span>
+            </template>
+            <template x-if="valid && !duplicate && tempKey">
+              <span class="text-green-600">Looks good. This key is available.</span>
+            </template>
+            <template x-if="!tempKey">
+              <span class="text-muted-foreground">Unique identifier for template variable references</span>
+            </template>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="flex gap-3 mt-6">
+      <button @click="editingKey.key = tempKey; saveKey()"
+              class="flex-1 bg-primary text-primary-foreground py-2 px-4 rounded-lg font-medium hover:bg-primary/90 transition-colors">
+        Save
+      </button>
+      <button @click="editingKey = null"
+              class="flex-1 bg-muted text-card-foreground py-2 px-4 rounded-lg font-medium hover:bg-accent transition-colors">
+        Cancel
+      </button>
+    </div>
+  </div>
+</div>

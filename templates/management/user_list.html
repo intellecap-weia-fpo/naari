@@ -1,0 +1,906 @@
+{% extends "base_app.html" %}
+{% load static %}
+{% load i18n %}
+{% block title %}{% trans "User Management" %} - {{ site_config.site_name }}{% endblock %}
+{% block main_content %}
+  {% csrf_token %}
+  <div class="user-list-page space-y-6">
+    <!-- Essential KPIs -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <!-- Total Users KPI -->
+      <div class="bg-card rounded-lg border border-border p-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="text-2xl font-bold text-card-foreground">{{ total_users }}</div>
+            <div class="text-sm font-medium text-muted-foreground">{% trans "Total Users" %}</div>
+          </div>
+          <div class="w-12 h-12 bg-primary rounded-lg flex items-center justify-center">
+            <i class="fa fa-users text-primary-foreground text-lg"></i>
+          </div>
+        </div>
+      </div>
+      <!-- Active Users KPI -->
+      <div class="bg-card rounded-lg border border-border p-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="text-2xl font-bold text-card-foreground">{{ page_obj.object_list|length }}</div>
+            <div class="text-sm font-medium text-muted-foreground">{% trans "Active Users" %}</div>
+          </div>
+          <div class="w-12 h-12 bg-accent rounded-lg flex items-center justify-center">
+            <i class="fa fa-check-circle text-accent-foreground text-lg"></i>
+          </div>
+        </div>
+      </div>
+      <!-- Admin Users KPI -->
+      <div class="bg-card rounded-lg border border-border p-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="text-2xl font-bold text-card-foreground">3</div>
+            <div class="text-sm font-medium text-muted-foreground">{% trans "Admin Users" %}</div>
+          </div>
+          <div class="w-12 h-12 bg-secondary rounded-lg flex items-center justify-center">
+            <i class="fa fa-clipboard-check text-secondary-foreground text-lg"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Search and Filter Section -->
+    <div class="bg-card rounded-lg border border-border p-6">
+      <div class="space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h2 class="text-lg font-semibold text-card-foreground">{% trans "Users" %}</h2>
+            <p class="text-sm text-muted-foreground">{% trans "Manage and search users" %}</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <!-- Filter Dropdown -->
+            <div class="relative">
+              <button type="button"
+                      id="filter-button"
+                      class="inline-flex items-center gap-2 px-4 py-2 border border-border rounded-lg text-sm font-medium text-card-foreground bg-background hover:bg-accent transition-colors">
+                <i class="fa fa-filter text-xs"></i>
+                {% trans "Filters" %}
+                <span id="filter-count"
+                      class="hidden ml-1 px-1.5 py-0.5 bg-primary text-primary-foreground rounded-full text-xs font-bold">0</span>
+              </button>
+              <div id="filter-dropdown"
+                   class="hidden absolute right-0 mt-2 w-64 bg-card border border-border rounded-lg shadow-lg p-4 z-10">
+                <h3 class="text-sm font-semibold text-card-foreground mb-3">{% trans "Filter by" %}</h3>
+                <div class="space-y-3">
+                  <div>
+                    <label class="text-xs font-medium text-muted-foreground">{% trans "Status" %}</label>
+                    <select id="filter-status" class="form-control mt-1">
+                      <option value="">{% trans "All" %}</option>
+                      <option value="active">{% trans "Active" %}</option>
+                      <option value="inactive">{% trans "Inactive" %}</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="text-xs font-medium text-muted-foreground">{% trans "Role" %}</label>
+                    <select id="filter-role" class="form-control mt-1">
+                      <option value="">{% trans "All" %}</option>
+                      <option value="superuser">{% trans "Super Admin" %}</option>
+                      <option value="staff">{% trans "Staff" %}</option>
+                      <option value="user">{% trans "Standard User" %}</option>
+                    </select>
+                  </div>
+                  <div class="flex gap-2 pt-2">
+                    <button type="button"
+                            onclick="applyFilters()"
+                            class="flex-1 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
+                      {% trans "Apply" %}
+                    </button>
+                    <button type="button"
+                            onclick="clearFilters()"
+                            class="flex-1 px-3 py-1.5 border border-border rounded-lg text-sm font-medium text-card-foreground hover:bg-accent transition-colors">
+                      {% trans "Reset" %}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="sm:w-full">
+          <form method="get" class="flex gap-2">
+            <div class="relative flex-1">
+              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <i class="fa fa-search text-muted-foreground text-sm"></i>
+              </div>
+              <input type="text"
+                     name="search"
+                     id="search"
+                     value="{{ search_query }}"
+                     class="form-control pl-10 pr-4"
+                     placeholder="{% trans "Search by name, username, or email..." %}">
+            </div>
+            <button type="submit"
+                    class="inline-flex items-center px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
+              {% trans "Search" %}
+            </button>
+            {% if search_query %}
+              <a href="{% url 'management:user_list' %}"
+                 class="inline-flex items-center px-4 py-2 border border-border rounded-lg text-sm font-medium text-card-foreground bg-background hover:bg-accent transition-colors">
+                {% trans "Clear" %}
+              </a>
+            {% endif %}
+          </form>
+        </div>
+      </div>
+    </div>
+    <!-- Users Data Table/Cards -->
+    <div class="bg-card rounded-2xl overflow-hidden shadow-sm">
+      <!-- Desktop Table -->
+      <div class="hidden md:block overflow-x-auto whitespace-nowrap">
+        <table class="min-w-full">
+          <thead>
+            <tr class="border-b border-border">
+              <th class="px-6 py-5 text-left">
+                <button type="button"
+                        class="group flex items-center gap-2 text-sm font-semibold text-card-foreground hover:text-primary transition-colors"
+                        onclick="sortTable('name')">
+                  {% trans "User Details" %}
+                  <span class="sort-indicator opacity-0 group-hover:opacity-100 transition-opacity">
+                    <i class="fa fa-sort text-xs text-muted-foreground"></i>
+                  </span>
+                </button>
+              </th>
+              <th class="px-6 py-5 text-left">
+                <button type="button"
+                        class="group flex items-center gap-2 text-sm font-semibold text-card-foreground hover:text-primary transition-colors"
+                        onclick="sortTable('email')">
+                  {% trans "Contact Info" %}
+                  <span class="sort-indicator opacity-0 group-hover:opacity-100 transition-opacity">
+                    <i class="fa fa-sort text-xs text-muted-foreground"></i>
+                  </span>
+                </button>
+              </th>
+              <th class="px-6 py-5 text-left">
+                <button type="button"
+                        class="group flex items-center gap-2 text-sm font-semibold text-card-foreground hover:text-primary transition-colors"
+                        onclick="sortTable('status')">
+                  {% trans "Status" %}
+                  <span class="sort-indicator opacity-0 group-hover:opacity-100 transition-opacity">
+                    <i class="fa fa-sort text-xs text-muted-foreground"></i>
+                  </span>
+                </button>
+              </th>
+              <th class="px-6 py-5 text-left">
+                <button type="button"
+                        class="group flex items-center gap-2 text-sm font-semibold text-card-foreground hover:text-primary transition-colors"
+                        onclick="sortTable('role')">
+                  {% trans "Group/Role" %}
+                  <span class="sort-indicator opacity-0 group-hover:opacity-100 transition-opacity">
+                    <i class="fa fa-sort text-xs text-muted-foreground"></i>
+                  </span>
+                </button>
+              </th>
+              <th class="px-6 py-5 text-right text-sm font-semibold text-card-foreground">{% trans "Actions" %}</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-border">
+            {% for user in page_obj %}
+              <tr class="group hover:bg-muted/5 transition-all duration-200">
+                <!-- User Info -->
+                <td class="px-6 py-5">
+                  <div class="flex items-center gap-3">
+                    <div class="relative">
+                        {% if user.profile.profile_image %}
+                          <div class="w-12 h-12 rounded-xl overflow-hidden ring-2 ring-primary/10 group-hover:ring-primary/20 transition-all duration-200">
+                            <img src="{{ user.profile.profile_image.url }}"
+                                 alt="{{ user.get_full_name|default:user.username }}"
+                                 class="w-full h-full object-cover">
+                          </div>
+                        {% else %}
+                          <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center ring-2 ring-primary/10 group-hover:ring-primary/20 transition-all duration-200">
+                            <span class="text-base font-bold text-primary">
+                              {% if user.get_full_name %}
+                                {{ user.get_full_name|slice:":1"|upper }}
+                              {% else %}
+                                {{ user.username|slice:":1"|upper }}
+                              {% endif %}
+                            </span>
+                          </div>
+                        {% endif %}
+                        {% if user.is_active %}
+                          <div class="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-card"></div>
+                        {% endif %}
+                    </div>
+                    <div class="min-w-0">
+                        <a href="{% url 'management:user_detail' user.id %}"
+                           class="block hover:no-underline">
+                          <p class="font-semibold text-card-foreground group-hover:text-primary transition-colors truncate">
+                            {{ user.get_full_name|default:user.username }}
+                          </p>
+                          <p class="text-sm text-muted-foreground truncate">@{{ user.username }}</p>
+                        </a>
+                    </div>
+                  </div>
+                </td>
+                <!-- Contact Info -->
+                <td class="px-6 py-5">
+                  {% if user.email %}
+                    <div class="space-y-1">
+                      <div class="flex items-center gap-2">
+                        <i class="fa fa-envelope text-muted-foreground text-xs"></i>
+                        <span class="text-sm text-card-foreground font-medium">{{ user.email }}</span>
+                      </div>
+                      <div class="flex items-center gap-1.5">
+                        <div class="w-2 h-2 rounded-full bg-green-500"></div>
+                        <span class="text-xs text-muted-foreground">{% trans "Email verified" %}</span>
+                      </div>
+                    </div>
+                  {% else %}
+                    <div class="flex items-center gap-2">
+                      <i class="fa fa-envelope text-muted-foreground/40 text-xs"></i>
+                      <span class="text-sm text-muted-foreground italic">{% trans "No email provided" %}</span>
+                    </div>
+                  {% endif %}
+                </td>
+                <!-- Status -->
+                <td class="px-6 py-5">
+                  {% if user.is_active %}
+                    <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-green-500/10 border border-green-500/20">
+                      <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                      <span class="text-sm font-medium text-green-700">{% trans "Active" %}</span>
+                    </div>
+                  {% else %}
+                    <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/50 border border-border">
+                      <div class="w-2 h-2 rounded-full bg-muted-foreground/30"></div>
+                      <span class="text-sm font-medium text-muted-foreground">{% trans "Inactive" %}</span>
+                    </div>
+                  {% endif %}
+                </td>
+                <!-- Group/Role -->
+                <td class="px-6 py-5">
+                  {% if user.user_role == "Admin" %}
+                    <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gradient-to-r from-red-500/10 to-red-600/10 border border-red-500/20">
+                      <i class="fa fa-crown text-xs text-red-600"></i>
+                      <span class="text-sm font-medium text-red-700">{% trans "Admin" %}</span>
+                    </div>
+                  {% elif user.user_role == "Cohort Manager" %}
+                    <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                      <i class="fa fa-users-cog text-xs text-blue-600"></i>
+                      <span class="text-sm font-medium text-blue-700">{% trans "Cohort Manager" %}</span>
+                    </div>
+                  {% elif user.user_role == "Mentor" %}
+                    <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-purple-500/10 border border-purple-500/20">
+                      <i class="fa fa-chalkboard-teacher text-xs text-purple-600"></i>
+                      <span class="text-sm font-medium text-purple-700">{% trans "Mentor" %}</span>
+                    </div>
+                  {% elif user.user_role == "Startup Admin" %}
+                    <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-orange-500/10 border border-orange-500/20">
+                      <i class="fa fa-briefcase text-xs text-orange-600"></i>
+                      <span class="text-sm font-medium text-orange-700">{% trans "Startup Admin" %}</span>
+                    </div>
+                  {% elif user.user_role == "Startup User" %}
+                    <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-green-500/10 border border-green-500/20">
+                      <i class="fa fa-user-tie text-xs text-green-600"></i>
+                      <span class="text-sm font-medium text-green-700">{% trans "Startup User" %}</span>
+                    </div>
+                  {% else %}
+                    <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/50 border border-border">
+                      <i class="fa fa-user text-xs text-muted-foreground"></i>
+                      <span class="text-sm font-medium text-muted-foreground">{{ user.user_role }}</span>
+                    </div>
+                  {% endif %}
+                </td>
+
+                <!-- Actions -->
+                <td class="px-6 py-5">
+                  <div class="flex items-center justify-end gap-2">
+                    <a href="{% url 'management:user_edit' user.id %}"
+                       class="inline-flex items-center justify-center w-9 h-9 text-muted-foreground hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200"
+                       title="{% trans 'Edit user' %}">
+                      <i class="fa fa-edit text-sm"></i>
+                    </a>
+                    <button type="button"
+                            class="delete-user-btn inline-flex items-center justify-center w-9 h-9 text-muted-foreground hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
+                            data-username="{{ user.username }}" data-user-id="{{ user.id }}"
+                            title="{% trans 'Delete user' %}">
+                      <i class="fa fa-trash text-sm"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="6" class="px-6 py-20 text-center">
+                  <div class="max-w-md mx-auto space-y-6">
+                    <div class="mx-auto w-20 h-20 bg-gradient-to-br from-muted to-muted/50 rounded-2xl flex items-center justify-center shadow-inner">
+                      <i class="fa fa-users text-2xl text-muted-foreground/50"></i>
+                    </div>
+                    <div class="space-y-2">
+                      <h3 class="text-xl font-bold text-card-foreground">
+                        {% if search_query %}
+                          {% trans "No Results Found" %}
+                        {% else %}
+                          {% trans "Start Building Your Team" %}
+                        {% endif %}
+                      </h3>
+                      <p class="text-muted-foreground leading-relaxed">
+                        {% if search_query %}
+                          {% trans "We couldn't find any users matching" %} "<span class="font-semibold text-primary">{{ search_query }}</span>". {% trans "Try different search terms or clear the filter." %}
+                        {% else %}
+                          {% trans "Add your first user to get started. You can invite team members, assign roles, and manage permissions." %}
+                        {% endif %}
+                      </p>
+                    </div>
+                    {% if not search_query %}
+                      <div class="flex justify-center pt-2">
+                        <a href="{% url 'management:user_create' %}"
+                           class="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-xl text-sm font-semibold hover:bg-primary/90 transition-all duration-200 shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 hover:-translate-y-0.5">
+                          <i class="fa fa-plus text-sm"></i>
+                          {% trans "Create Your First User" %}
+                        </a>
+                      </div>
+                    {% endif %}
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Mobile Card Layout -->
+      <div class="md:hidden">
+        {% for user in page_obj %}
+          <div class="border-b border-border last:border-b-0 p-4 hover:bg-muted/5 transition-colors">
+            <div class="flex items-center justify-between">
+              <!-- User Info -->
+              <div class="flex items-center gap-3 flex-1 min-w-0">
+                <div class="relative flex-shrink-0">
+                  {% if user.profile.profile_image %}
+                    <div class="w-10 h-10 rounded-lg overflow-hidden ring-2 ring-primary/10">
+                      <img src="{{ user.profile.profile_image.url }}"
+                           alt="{{ user.get_full_name|default:user.username }}"
+                           class="w-full h-full object-cover">
+                    </div>
+                  {% else %}
+                    <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center ring-2 ring-primary/10">
+                      <span class="text-sm font-bold text-primary">
+                        {% if user.get_full_name %}
+                          {{ user.get_full_name|slice:":1"|upper }}
+                        {% else %}
+                          {{ user.username|slice:":1"|upper }}
+                        {% endif %}
+                      </span>
+                    </div>
+                  {% endif %}
+                  {% if user.is_active %}
+                    <div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-card"></div>
+                  {% endif %}
+                </div>
+
+                <div class="min-w-0 flex-1">
+                  <a href="{% url 'management:user_detail' user.id %}" class="block hover:no-underline">
+                    <p class="font-medium text-card-foreground truncate">
+                      {{ user.get_full_name|default:user.username }}
+                    </p>
+                    <p class="text-sm text-muted-foreground truncate">
+                      {% if user.email %}{{ user.email }}{% else %}@{{ user.username }}{% endif %}
+                    </p>
+                  </a>
+
+                  <!-- Status and Role -->
+                  <div class="flex items-center gap-2 mt-2">
+                    {% if user.is_active %}
+                      <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-green-500/10 border border-green-500/20">
+                        <div class="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+                        <span class="text-xs font-medium text-green-700">{% trans "Active" %}</span>
+                      </span>
+                    {% else %}
+                      <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-muted/50 border border-border">
+                        <div class="w-1.5 h-1.5 rounded-full bg-muted-foreground/30"></div>
+                        <span class="text-xs font-medium text-muted-foreground">{% trans "Inactive" %}</span>
+                      </span>
+                    {% endif %}
+
+                    {% if user.user_role == "Admin" %}
+                      <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-red-500/10 border border-red-500/20">
+                        <i class="fa fa-crown text-xs text-red-600"></i>
+                        <span class="text-xs font-medium text-red-700">{% trans "Admin" %}</span>
+                      </span>
+                    {% elif user.user_role == "Cohort Manager" %}
+                      <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-500/10 border border-blue-500/20">
+                        <i class="fa fa-users-cog text-xs text-blue-600"></i>
+                        <span class="text-xs font-medium text-blue-700">{% trans "Cohort Manager" %}</span>
+                      </span>
+                    {% elif user.user_role == "Mentor" %}
+                      <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-500/10 border border-purple-500/20">
+                        <i class="fa fa-chalkboard-teacher text-xs text-purple-600"></i>
+                        <span class="text-xs font-medium text-purple-700">{% trans "Mentor" %}</span>
+                      </span>
+                    {% elif user.user_role == "Startup Admin" %}
+                      <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-orange-500/10 border border-orange-500/20">
+                        <i class="fa fa-briefcase text-xs text-orange-600"></i>
+                        <span class="text-xs font-medium text-orange-700">{% trans "Startup Admin" %}</span>
+                      </span>
+                    {% elif user.user_role == "Startup User" %}
+                      <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-green-500/10 border border-green-500/20">
+                        <i class="fa fa-user-tie text-xs text-green-600"></i>
+                        <span class="text-xs font-medium text-green-700">{% trans "Startup User" %}</span>
+                      </span>
+                    {% elif user.user_role %}
+                      <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-muted/50 border border-border">
+                        <i class="fa fa-user text-xs text-muted-foreground"></i>
+                        <span class="text-xs font-medium text-muted-foreground">{{ user.user_role }}</span>
+                      </span>
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+
+              <!-- Actions -->
+              <div class="flex items-center gap-1">
+                <a href="{% url 'management:user_edit' user.id %}"
+                   class="inline-flex items-center justify-center w-8 h-8 text-muted-foreground hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200"
+                   title="{% trans 'Edit user' %}">
+                  <i class="fa fa-edit text-sm"></i>
+                </a>
+                <button type="button"
+                        class="delete-user-btn inline-flex items-center justify-center w-8 h-8 text-muted-foreground hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
+                        data-username="{{ user.username }}" data-user-id="{{ user.id }}"
+                        title="{% trans 'Delete user' %}">
+                  <i class="fa fa-trash text-sm"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        {% empty %}
+          <div class="p-8 text-center">
+            <div class="max-w-sm mx-auto space-y-4">
+              <div class="mx-auto w-16 h-16 bg-gradient-to-br from-muted to-muted/50 rounded-xl flex items-center justify-center">
+                <i class="fa fa-users text-xl text-muted-foreground/50"></i>
+              </div>
+              <div class="space-y-2">
+                <h3 class="text-lg font-semibold text-card-foreground">
+                  {% if search_query %}
+                    {% trans "No Results Found" %}
+                  {% else %}
+                    {% trans "Start Building Your Team" %}
+                  {% endif %}
+                </h3>
+                <p class="text-sm text-muted-foreground">
+                  {% if search_query %}
+                    {% trans "We couldn't find any users matching your search." %}
+                  {% else %}
+                    {% trans "Add your first user to get started." %}
+                  {% endif %}
+                </p>
+              </div>
+              {% if not search_query %}
+                <a href="{% url 'management:user_create' %}"
+                   class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
+                  <i class="fa fa-plus text-xs"></i>
+                  {% trans "Create User" %}
+                </a>
+              {% endif %}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+      <!-- Enhanced Pagination -->
+      {% if page_obj.has_other_pages %}
+        <div class="bg-gradient-to-r from-muted/10 to-muted/5 px-6 py-5 border-t border-border">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div class="flex items-center gap-2">
+              <div class="w-2 h-2 rounded-full bg-primary"></div>
+              <p class="text-sm text-muted-foreground">
+                {% trans "Displaying" %} <span class="font-semibold text-card-foreground">{{ page_obj.start_index }}-{{ page_obj.end_index }}</span>
+                {% trans "of" %} <span class="font-semibold text-card-foreground">{{ page_obj.paginator.count }}</span> {% trans "total users" %}
+              </p>
+            </div>
+            <nav class="flex items-center gap-2">
+              {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}"
+                   class="inline-flex items-center justify-center w-10 h-10 rounded-lg border border-border bg-background hover:bg-muted hover:border-muted-foreground/20 transition-all duration-200 group">
+                  <i class="fa fa-chevron-left text-xs text-muted-foreground group-hover:text-card-foreground"></i>
+                </a>
+              {% else %}
+                <div class="inline-flex items-center justify-center w-10 h-10 rounded-lg border border-border/50 bg-muted/20 cursor-not-allowed opacity-50">
+                  <i class="fa fa-chevron-left text-xs text-muted-foreground"></i>
+                </div>
+              {% endif %}
+              <div class="hidden sm:flex items-center gap-1">
+                {% for num in page_obj.paginator.page_range %}
+                  {% if page_obj.number == num %}
+                    <span class="inline-flex items-center justify-center min-w-[2.5rem] h-10 px-3 rounded-lg bg-primary text-primary-foreground text-sm font-semibold shadow-sm">
+                      {{ num }}
+                    </span>
+                  {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                    <a href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}"
+                       class="inline-flex items-center justify-center min-w-[2.5rem] h-10 px-3 rounded-lg border border-transparent hover:border-border bg-transparent hover:bg-muted text-sm font-medium text-muted-foreground hover:text-card-foreground transition-all duration-200">
+                      {{ num }}
+                    </a>
+                  {% elif num == 1 or num == page_obj.paginator.num_pages %}
+                    <a href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}"
+                       class="inline-flex items-center justify-center min-w-[2.5rem] h-10 px-3 rounded-lg border border-transparent hover:border-border bg-transparent hover:bg-muted text-sm font-medium text-muted-foreground hover:text-card-foreground transition-all duration-200">
+                      {{ num }}
+                    </a>
+                  {% elif num == page_obj.number|add:'-4' or num == page_obj.number|add:'4' %}
+                    <span class="inline-flex items-center justify-center min-w-[2.5rem] h-10 text-sm text-muted-foreground/50">•••</span>
+                  {% endif %}
+                {% endfor %}
+              </div>
+              {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}"
+                   class="inline-flex items-center justify-center w-10 h-10 rounded-lg border border-border bg-background hover:bg-muted hover:border-muted-foreground/20 transition-all duration-200 group">
+                  <i class="fa fa-chevron-right text-xs text-muted-foreground group-hover:text-card-foreground"></i>
+                </a>
+              {% else %}
+                <div class="inline-flex items-center justify-center w-10 h-10 rounded-lg border border-border/50 bg-muted/20 cursor-not-allowed opacity-50">
+                  <i class="fa fa-chevron-right text-xs text-muted-foreground"></i>
+                </div>
+              {% endif %}
+            </nav>
+          </div>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+  <style>
+    /* Smooth transition for row removal */
+    tbody tr {
+      transition: opacity 0.3s ease-out;
+    }
+  </style>
+  <script>
+      // Table functionality
+      function initializeUserListFunctionality() {
+          const filterButton = document.getElementById('filter-button');
+          const filterDropdown = document.getElementById('filter-dropdown');
+          const filterCount = document.getElementById('filter-count');
+
+          // Initialize delete button functionality
+          initializeDeleteButtons();
+
+          // Filter dropdown toggle
+          filterButton?.addEventListener('click', function(e) {
+              e.stopPropagation();
+              filterDropdown.classList.toggle('hidden');
+          });
+
+          // Close filter dropdown when clicking outside
+          function handleClickOutside(e) {
+              if (!filterButton?.contains(e.target) && !filterDropdown?.contains(e.target)) {
+                  filterDropdown?.classList.add('hidden');
+              }
+          }
+
+          // Remove existing event listener before adding new one
+          document.removeEventListener('click', handleClickOutside);
+          document.addEventListener('click', handleClickOutside);
+      }
+
+      // Delete user button click handler
+      function handleDeleteButtonClick(e) {
+          // Handle delete user button clicks
+          if (e.target.closest('.delete-user-btn')) {
+              e.preventDefault();
+              e.stopPropagation();
+              const btn = e.target.closest('.delete-user-btn');
+              const username = btn.getAttribute('data-username');
+              const userId = btn.getAttribute('data-user-id');
+              confirmDeleteUser(username, userId);
+          }
+      }
+
+      // Initialize delete button functionality
+      function initializeDeleteButtons() {
+          // Remove existing event listener to prevent duplicates
+          document.removeEventListener('click', handleDeleteButtonClick);
+
+          // Add event listener
+          document.addEventListener('click', handleDeleteButtonClick);
+      }
+
+      // Initialize on DOMContentLoaded
+      document.addEventListener('DOMContentLoaded', function() {
+          initializeUserListFunctionality();
+      });
+
+      // Re-initialize on Turbo navigation
+      document.addEventListener('turbo:load', function() {
+          initializeUserListFunctionality();
+      });
+
+      // Cleanup on Turbo navigation away
+      document.addEventListener('turbo:before-visit', function() {
+          // Clean up event handlers when leaving the page
+          if (window.globalMenuHandler) {
+              document.removeEventListener('click', window.globalMenuHandler);
+              delete window.globalMenuHandler;
+          }
+          if (window.userMenuHandler) {
+              document.removeEventListener('click', window.userMenuHandler);
+              delete window.userMenuHandler;
+          }
+      });
+
+      // Additional Turbo frame reloads
+      document.addEventListener('turbo:frame-load', function() {
+          initializeUserListFunctionality();
+      });
+
+      // Global functions
+      window.confirmDeleteUser = function(username, userId) {
+          showConfirmModal(
+              'Delete User',
+              `Are you sure you want to delete user "${username}"? This action cannot be undone.`,
+              'Delete User',
+              'Cancel'
+          ).then((confirmed) => {
+              if (confirmed) {
+                  deleteUser(username, userId);
+              }
+          });
+      }
+
+      // Delete user function
+      function deleteUser(username, userId) {
+          // Show loading message
+          showToast('Deleting user...', 'info');
+
+          // Create form data
+          const formData = new FormData();
+          formData.append('action', 'delete');
+
+          // Get CSRF token
+          const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value ||
+                           document.querySelector('input[name="csrfmiddlewaretoken"]')?.value ||
+                           document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+
+          if (csrfToken) {
+              formData.append('csrfmiddlewaretoken', csrfToken);
+          }
+
+          // Send delete request
+          fetch(`/manage/users/${userId}/`, {
+              method: 'POST',
+              body: formData,
+              headers: {
+                  'X-CSRFToken': csrfToken || ''
+              }
+          })
+          .then(response => response.json())
+          .then(data => {
+              if (data.success) {
+                  showToast(data.message, 'success');
+
+                  // Remove the user row from the table immediately
+                  const userRow = document.querySelector(`tr:has(.user-menu-btn[data-user-id="${userId}"])`);
+                  if (userRow) {
+                      userRow.style.transition = 'opacity 0.3s ease-out';
+                      userRow.style.opacity = '0';
+                      setTimeout(() => {
+                          userRow.remove();
+                          // Update user count display
+                          updateUserCount(-1);
+                      }, 300);
+                  }
+
+                  // Use Turbo navigation to refresh the page after a delay to ensure consistency
+                  setTimeout(() => {
+                      if (typeof Turbo !== 'undefined') {
+                          Turbo.visit('/manage/users/', { action: 'replace' });
+                      } else {
+                          window.location.reload();
+                      }
+                  }, 1500);
+              } else {
+                  showToast(data.message || 'Failed to delete user', 'error');
+              }
+          })
+          .catch(error => {
+              console.error('Error:', error);
+              showToast('An error occurred while deleting the user', 'error');
+          });
+      }
+
+      // Toast notification function
+      function showToast(message, type = 'info') {
+          const toast = document.createElement('div');
+          let bgClass, iconClass;
+
+          if (type === 'success') {
+              bgClass = 'bg-green-50 border-green-200 text-green-800';
+              iconClass = 'fa-check-circle text-green-600';
+          } else if (type === 'error') {
+              bgClass = 'bg-red-50 border-red-200 text-red-800';
+              iconClass = 'fa-exclamation-triangle text-red-600';
+          } else {
+              bgClass = 'bg-blue-50 border-blue-200 text-blue-800';
+              iconClass = 'fa-info-circle text-blue-600';
+          }
+
+          toast.className = `fixed top-4 right-4 z-50 ${bgClass} border rounded-lg p-4 shadow-lg max-w-sm`;
+          toast.innerHTML = `
+              <div class="flex items-start">
+                  <i class="fa ${iconClass} mr-3 mt-0.5"></i>
+                  <div class="flex-1">
+                      <p class="text-sm font-medium">${message}</p>
+                  </div>
+                  <button onclick="this.parentElement.parentElement.remove()" class="ml-3 text-gray-400 hover:text-gray-600">
+                      <i class="fa fa-times"></i>
+                  </button>
+              </div>
+          `;
+
+          document.body.appendChild(toast);
+
+          // Auto remove after 5 seconds
+          setTimeout(() => {
+              if (toast.parentElement) {
+                  toast.remove();
+              }
+          }, 5000);
+      }
+
+      // Update user count display
+      function updateUserCount(change) {
+          // Update total users count in KPI section
+          const totalUsersElement = document.querySelector('.text-2xl.font-bold.text-card-foreground');
+          if (totalUsersElement) {
+              const currentCount = parseInt(totalUsersElement.textContent) || 0;
+              totalUsersElement.textContent = Math.max(0, currentCount + change);
+          }
+
+          // Update pagination count if it exists
+          const paginationCountElements = document.querySelectorAll('.font-semibold.text-card-foreground');
+          paginationCountElements.forEach(element => {
+              if (element.textContent && !isNaN(parseInt(element.textContent))) {
+                  const currentCount = parseInt(element.textContent);
+                  if (currentCount > 10) { // Likely the total count, not page numbers
+                      element.textContent = Math.max(0, currentCount + change);
+                  }
+              }
+          });
+      }
+
+      // Business canvas modal implementation
+      function showConfirmModal(title, message, confirmText = 'Confirm', cancelText = 'Cancel') {
+          return new Promise((resolve) => {
+              const modal = document.createElement('div');
+              modal.className = 'fixed inset-0 z-50 flex items-center justify-center';
+              modal.style.background = 'rgba(0, 0, 0, 0.25)';
+              modal.innerHTML = `
+                  <div class="bg-card rounded-xl shadow-lg border border-border max-w-md w-full mx-4" data-modal>
+                      <div class="p-6 border-b border-border">
+                          <h3 class="text-lg font-semibold text-card-foreground flex items-center">
+                              <i class="fa fa-exclamation-triangle text-destructive mr-3"></i>
+                              ${title}
+                          </h3>
+                      </div>
+                      <div class="p-6">
+                          <p class="text-card-foreground">${message}</p>
+                      </div>
+                      <div class="p-6 border-t border-border flex justify-end space-x-3">
+                          <button
+                              class="px-4 py-2 text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-muted"
+                              data-action="cancel">
+                              ${cancelText}
+                          </button>
+                          <button
+                              class="px-4 py-2 bg-destructive text-destructive-foreground rounded-lg hover:bg-destructive/90 transition-colors"
+                              data-action="confirm">
+                              ${confirmText}
+                          </button>
+                      </div>
+                  </div>
+              `;
+
+              document.body.appendChild(modal);
+
+              const handleAction = (action) => {
+                  modal.remove();
+                  resolve(action === 'confirm');
+              };
+
+              modal.querySelector('[data-action="cancel"]').addEventListener('click', () => handleAction('cancel'));
+              modal.querySelector('[data-action="confirm"]').addEventListener('click', () => handleAction('confirm'));
+
+              // Close on backdrop click
+              modal.addEventListener('click', (e) => {
+                  if (e.target === modal) {
+                      handleAction('cancel');
+                  }
+              });
+
+              // Close on Escape key
+              const handleEscape = (e) => {
+                  if (e.key === 'Escape') {
+                      handleAction('cancel');
+                      document.removeEventListener('keydown', handleEscape);
+                  }
+              };
+              document.addEventListener('keydown', handleEscape);
+          });
+      }
+
+      // Sorting functionality - Turbo compatible
+      let sortOrder = {};
+      window.sortTable = function(column) {
+          // Toggle sort order
+          sortOrder[column] = sortOrder[column] === 'asc' ? 'desc' : 'asc';
+
+          // Get current URL parameters
+          const url = new URL(window.location);
+          url.searchParams.set('sort', column);
+          url.searchParams.set('order', sortOrder[column]);
+
+          // Use Turbo.visit for navigation
+          if (typeof Turbo !== 'undefined') {
+              Turbo.visit(url.toString());
+          } else {
+              window.location.href = url.toString();
+          }
+      }
+
+      // Filter functionality - Turbo compatible
+      window.applyFilters = function() {
+          const status = document.getElementById('filter-status').value;
+          const role = document.getElementById('filter-role').value;
+          const url = new URL(window.location);
+
+          if (status) url.searchParams.set('status', status);
+          else url.searchParams.delete('status');
+
+          if (role) url.searchParams.set('role', role);
+          else url.searchParams.delete('role');
+
+          // Use Turbo.visit for navigation
+          if (typeof Turbo !== 'undefined') {
+              Turbo.visit(url.toString());
+          } else {
+              window.location.href = url.toString();
+          }
+      }
+
+      window.clearFilters = function() {
+          const url = new URL(window.location);
+          url.searchParams.delete('status');
+          url.searchParams.delete('role');
+
+          // Use Turbo.visit for navigation
+          if (typeof Turbo !== 'undefined') {
+              Turbo.visit(url.toString());
+          } else {
+              window.location.href = url.toString();
+          }
+      }
+
+      // Update filter count on page load and Turbo navigation
+      function updateFilterCount() {
+          const params = new URLSearchParams(window.location.search);
+          let filterActiveCount = 0;
+
+          const statusFilter = document.getElementById('filter-status');
+          const roleFilter = document.getElementById('filter-role');
+
+          if (params.get('status') && statusFilter) {
+              statusFilter.value = params.get('status');
+              filterActiveCount++;
+          }
+          if (params.get('role') && roleFilter) {
+              roleFilter.value = params.get('role');
+              filterActiveCount++;
+          }
+
+          const filterCountEl = document.getElementById('filter-count');
+          if (filterCountEl) {
+              if (filterActiveCount > 0) {
+                  filterCountEl.textContent = filterActiveCount.toString();
+                  filterCountEl.classList.remove('hidden');
+              } else {
+                  filterCountEl.classList.add('hidden');
+              }
+          }
+      }
+
+      // Initialize filter count on both initial load and Turbo navigation
+      document.addEventListener('DOMContentLoaded', updateFilterCount);
+      document.addEventListener('turbo:load', updateFilterCount);
+  </script>
+{% endblock %}

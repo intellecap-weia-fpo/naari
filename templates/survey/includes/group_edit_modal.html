@@ -1,0 +1,49 @@
+<!-- Group Edit Modal -->
+<div x-show="editingGroup" x-cloak x-data="{
+      tempGroup: '',
+      availableGroups: [],
+    }"
+     x-init="
+       $watch('editingGroup', value => {
+         if (value) {
+           this.tempGroup = value.group || '';
+           this.availableGroups = value.availableGroups || [];
+         }
+       });
+     "
+     class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+  <div class="bg-card rounded-lg w-full max-w-md p-6" @click.outside="editingGroup = null">
+    <h2 class="text-xl font-semibold text-card-foreground mb-4">Edit Question Group</h2>
+    
+    <div class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-card-foreground mb-1">Group Name</label>
+        <input type="text"
+               x-model="tempGroup"
+               class="form-control"
+               placeholder="Enter group name (optional)"
+               list="groupSuggestions"
+               @keydown.enter="updateQuestionGroup(editingGroup.id, tempGroup)">
+        <datalist id="groupSuggestions">
+          <template x-for="group in availableGroups" :key="group">
+            <option :value="group"></option>
+          </template>
+        </datalist>
+        <div class="mt-2 text-xs text-muted-foreground">
+          Group questions together for better organization. Leave empty to remove from group.
+        </div>
+      </div>
+    </div>
+    
+    <div class="flex gap-3 mt-6">
+      <button @click="updateQuestionGroup(editingGroup.id, tempGroup)"
+              class="flex-1 bg-primary text-primary-foreground py-2 px-4 rounded-lg font-medium hover:bg-primary/90 transition-colors">
+        Save
+      </button>
+      <button @click="editingGroup = null"
+              class="flex-1 bg-muted text-card-foreground py-2 px-4 rounded-lg font-medium hover:bg-accent transition-colors">
+        Cancel
+      </button>
+    </div>
+  </div>
+</div>

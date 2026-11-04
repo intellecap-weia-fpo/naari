@@ -1,0 +1,127 @@
+{% extends "base_app.html" %}
+{% load i18n %}
+{% load static %}
+
+{% block title %}{% trans "Insights" %} - NAARI Admin Panel{% endblock %}
+
+{% block extra_css %}
+  {{ block.super }}
+  {# Turbo would otherwise serve a stale snapshot when navigating back to this
+     page — the insights list changes whenever the nightly generator runs. #}
+  <meta name="turbo-cache-control" content="no-cache">
+{% endblock %}
+
+{% block main_content %}
+  <div class="space-y-6">
+
+    <!-- Header Row -->
+    <div style="margin-top: 0.5rem; margin-bottom: 1.5rem; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 1rem;">
+      <div>
+        <p style="font-size: 11px; font-weight: 700; color: #0ea5e9; letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 4px;">INSIGHTS</p>
+        <h2 style="font-size: 1.75rem; font-weight: 800; color: #111827; margin: 0;">{% trans "Under-performing Questions" %}</h2>
+        <p style="font-size: 13px; color: #64748b; margin-top: 6px; max-width: 560px; line-height: 1.5;">
+          {% blocktrans %}Questions where at least 50% of respondents performed poorly, grouped by indicator. Each card surfaces symptoms, likely causes, and a high-level potential action drawn from the NAARI playbook.{% endblocktrans %}
+        </p>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem;">
+        {% if last_generated_on %}
+          <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #64748b; background: #f1f5f9; padding: 6px 12px; border-radius: 9999px;">
+            <i class="fa fa-clock"></i>
+            {% trans "Last generated:" %} {{ last_generated_on|date:"M j, Y" }}
+          </span>
+        {% else %}
+          <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #b45309; background: #fef3c7; padding: 6px 12px; border-radius: 9999px;">
+            <i class="fa fa-info-circle"></i>
+            {% trans "No insights generated yet" %}
+          </span>
+        {% endif %}
+        {% if surveys|length > 1 %}
+          <form method="get">
+            <select name="survey" onchange="this.form.submit()"
+                    style="padding: 8px 12px; border: 1px solid #e5e7eb; border-radius: 10px; background: #fff; font-size: 13px; color: #111827;">
+              {% for s in surveys %}
+                <option value="{{ s.id }}" {% if selected_survey and selected_survey.id == s.id %}selected{% endif %}>{{ s.title }}</option>
+              {% endfor %}
+            </select>
+          </form>
+        {% endif %}
+        {% if can_refresh and selected_survey %}
+          <button type="button" id="refresh-insights-btn"
+                  data-url="{% url 'survey:survey_insights_refresh' selected_survey.pk %}"
+                  class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm font-semibold">
+            <i class="fa fa-refresh"></i>
+            <span>{% trans "Refresh now" %}</span>
+          </button>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if not grouped %}
+      <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 16px; padding: 3rem; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+        <div style="width: 56px; height: 56px; margin: 0 auto 1rem; border-radius: 14px; background: #f3f4f6; color: #6b7280; display: flex; align-items: center; justify-content: center;">
+          <i class="fa fa-ai-innovation-lightbulb" style="font-size: 22px;"></i>
+        </div>
+        <h3 style="font-size: 1.1rem; font-weight: 700; color: #111827; margin: 0 0 0.5rem;">{% trans "No insights yet" %}</h3>
+        <p style="font-size: 13px; color: #6b7280; margin: 0; line-height: 1.5;">
+          {% blocktrans %}Either no questions crossed the 50% poor-performance threshold, or the nightly generator has not run yet. Staff users can trigger a manual refresh above.{% endblocktrans %}
+        </p>
+      </div>
+    {% else %}
+      {% for bucket in grouped %}
+        <div style="margin-top: 2rem;">
+          <div style="margin-bottom: 1rem;">
+            <p style="font-size: 11px; font-weight: 700; color: #0ea5e9; letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 4px;">INDICATOR</p>
+            <h3 style="font-size: 1.25rem; font-weight: 800; color: #111827; margin: 0;">{{ bucket.indicator_name }}</h3>
+            {% if bucket.indicator_description %}
+              <p style="font-size: 13px; color: #64748b; margin-top: 4px; line-height: 1.5;">{{ bucket.indicator_description }}</p>
+            {% endif %}
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.25rem;">
+            {% for insight in bucket.items %}
+              {% include 'survey/includes/insight_card.html' %}
+            {% endfor %}
+          </div>
+        </div>
+      {% endfor %}
+    {% endif %}
+
+  </div>
+
+  {% if can_refresh and selected_survey %}
+    <script>
+      (function () {
+        const btn = document.getElementById('refresh-insights-btn');
+        if (!btn) return;
+        btn.addEventListener('click', async function () {
+          const url = btn.getAttribute('data-url');
+          const original = btn.innerHTML;
+          btn.disabled = true;
+          btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i><span>{% trans "Refreshing..." %}</span>';
+          try {
+            const csrf = document.querySelector('[name=csrfmiddlewaretoken]')?.value
+              || document.cookie.split('; ').find(r => r.startsWith('csrftoken='))?.split('=')[1]
+              || '';
+            const resp = await fetch(url, {
+              method: 'POST',
+              headers: { 'X-CSRFToken': csrf, 'Content-Type': 'application/json' },
+            });
+            const data = await resp.json().catch(() => ({}));
+            if (resp.ok && data.status === 'ok') {
+              window.location.reload();
+            } else {
+              alert(data.message || '{% trans "Refresh failed" %}');
+              btn.disabled = false;
+              btn.innerHTML = original;
+            }
+          } catch (err) {
+            alert(err.message || '{% trans "Refresh failed" %}');
+            btn.disabled = false;
+            btn.innerHTML = original;
+          }
+        });
+      })();
+    </script>
+    <form style="display:none">{% csrf_token %}</form>
+  {% endif %}
+{% endblock %}

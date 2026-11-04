@@ -1,0 +1,137 @@
+{% extends "base_app.html" %}
+{% load i18n %}
+{% load static %}
+{% block title %}{{ page.title|default:"Page "|add:page.order|add:1 }} - {{ site_config.site_name }}{% endblock %}
+{% block main_content %}
+  <div class="space-y-6">
+    <!-- Header -->
+    <div class="bg-card rounded-lg border border-border p-6">
+      <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div class="flex-1">
+          <div class="flex items-center gap-3 mb-2">
+            <span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10 text-primary font-bold text-sm">
+              {{ page.order|add:1 }}
+            </span>
+            <h1 class="text-2xl font-bold text-card-foreground">{{ page.title|default:"Page "|add:page.order|add:1 }}</h1>
+          </div>
+          {% if page.description %}<p class="text-muted-foreground mb-4">{{ page.description }}</p>{% endif %}
+          <div class="flex items-center gap-4 text-sm text-muted-foreground">
+            <div class="flex items-center gap-2">
+              <i class="fa fa-poll text-xs"></i>
+              <a href="{% url 'survey:survey_detail' survey.pk %}"
+                 class="hover:text-primary transition-colors">{{ survey.title }}</a>
+            </div>
+            <div class="flex items-center gap-2">
+              <i class="fa fa-question-circle text-xs"></i>
+              <span>{{ questions.count }} question{{ questions.count|pluralize }}</span>
+            </div>
+          </div>
+        </div>
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+          <a href="{% url 'survey:question_create' page.pk %}"
+             class="inline-flex items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
+            <i class="fa fa-plus text-xs"></i>
+            {% trans "Add Question" %}
+          </a>
+          <a href="{% url 'survey:page_edit' page.pk %}"
+             class="inline-flex items-center justify-center gap-2 px-4 py-2 border border-border rounded-lg text-sm font-medium text-card-foreground bg-background hover:bg-accent transition-colors">
+            <i class="fa fa-edit text-xs"></i>
+            {% trans "Edit Page" %}
+          </a>
+          <a href="{% url 'survey:survey_detail' survey.pk %}"
+             class="inline-flex items-center justify-center gap-2 px-4 py-2 border border-border rounded-lg text-sm font-medium text-card-foreground bg-background hover:bg-accent transition-colors">
+            <i class="fa fa-arrow-left text-xs"></i>
+            {% trans "Back" %}
+          </a>
+        </div>
+      </div>
+    </div>
+    <!-- Questions -->
+    <div class="space-y-4">
+      {% if questions %}
+        <div class="bg-card rounded-lg border border-border p-6">
+          <h2 class="text-lg font-semibold text-card-foreground mb-4">{% trans "Questions" %}</h2>
+          <div class="space-y-4">
+            {% for question in questions %}
+              <div class="group bg-muted/5 hover:bg-muted/10 border border-border rounded-lg p-4 transition-all duration-200">
+                <div class="flex items-start justify-between gap-4">
+                  <div class="flex items-start gap-4 flex-1">
+                    <div class="w-8 h-8 rounded-lg bg-secondary/10 flex items-center justify-center flex-shrink-0">
+                      <span class="text-sm font-bold text-secondary-foreground">{{ question.order|add:1 }}</span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-center gap-2 mb-2">
+                        <h3 class="font-medium text-card-foreground">{{ question.text }}</h3>
+                        {% if question.is_required %}
+                          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                            {% trans "Required" %}
+                          </span>
+                        {% endif %}
+                      </div>
+                      <div class="flex items-center gap-4 text-sm text-muted-foreground">
+                        <div class="flex items-center gap-1">
+                          <i class="fa fa-tag text-xs"></i>
+                          <span class="capitalize">{{ question.get_question_type_display }}</span>
+                        </div>
+                        {% if question.options.exists %}
+                          <div class="flex items-center gap-1">
+                            <i class="fa fa-list text-xs"></i>
+                            <span>{{ question.options.count }} option{{ question.options.count|pluralize }}</span>
+                          </div>
+                        {% endif %}
+                      </div>
+                      {% if question.options.exists %}
+                        <div class="mt-3 space-y-1">
+                          {% for option in question.options.all %}
+                            <div class="text-xs text-muted-foreground flex items-center gap-2">
+                              <span class="w-1 h-1 rounded-full bg-muted-foreground"></span>
+                              {{ option.text }}
+                            </div>
+                          {% endfor %}
+                        </div>
+                      {% endif %}
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    <a href="{% url 'survey:question_edit' question.pk %}"
+                       class="inline-flex items-center justify-center w-8 h-8 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-all duration-200"
+                       title="{% trans "Edit Question" %}">
+                      <i class="fa fa-edit text-xs"></i>
+                    </a>
+                    <a href="{% url 'survey:question_delete' question.pk %}"
+                       class="inline-flex items-center justify-center w-8 h-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-all duration-200"
+                       title="{% trans "Delete Question" %}">
+                      <i class="fa fa-trash text-xs"></i>
+                    </a>
+                  </div>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      {% else %}
+        <!-- Empty State -->
+        <div class="bg-card rounded-lg border border-border p-12 text-center">
+          <div class="max-w-md mx-auto space-y-6">
+            <div class="mx-auto w-16 h-16 bg-gradient-to-br from-muted to-muted/50 rounded-2xl flex items-center justify-center shadow-inner">
+              <i class="fa fa-question-circle text-xl text-muted-foreground/50"></i>
+            </div>
+            <div class="space-y-2">
+              <h3 class="text-lg font-semibold text-card-foreground">{% trans "No Questions Yet" %}</h3>
+              <p class="text-muted-foreground">
+                {% trans "Start building this page by adding your first question. You can create various types of questions like text, multiple choice, and more." %}
+              </p>
+            </div>
+            <div class="flex justify-center">
+              <a href="{% url 'survey:question_create' page.pk %}"
+                 class="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-xl text-sm font-semibold hover:bg-primary/90 transition-all duration-200 shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 hover:-translate-y-0.5">
+                <i class="fa fa-plus text-sm"></i>
+                {% trans "Add First Question" %}
+              </a>
+            </div>
+          </div>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}

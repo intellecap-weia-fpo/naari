@@ -1,0 +1,262 @@
+{% load i18n %}
+{% load static %}
+<!-- Survey Specific Sidebar - NAARI style -->
+<style>
+  #sidebar-content {
+    height: calc(100vh - 4rem);
+    max-height: calc(100vh - 4rem);
+    background: #FFFFFF !important;
+    border-right: 1px solid #D8E4F0 !important;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  #sidebar-content nav {
+    scrollbar-width: thin;
+    scrollbar-color: #D8E4F0 transparent;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+  }
+  #sidebar-content nav::-webkit-scrollbar { width: 6px; }
+  #sidebar-content nav::-webkit-scrollbar-track { background: transparent; }
+  #sidebar-content nav::-webkit-scrollbar-thumb { background-color: #D8E4F0; border-radius: 3px; }
+  #sidebar-content nav::-webkit-scrollbar-thumb:hover { background-color: #7A8FA6; }
+
+  /* NAARI section label */
+  .naari-side-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: #7A8FA6;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 0 8px;
+    margin-bottom: 6px;
+  }
+
+  /* NAARI nav items */
+  .naari-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #3A4E66;
+    transition: all 0.15s ease;
+    width: 100%;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    font-family: 'DM Sans', sans-serif;
+    text-decoration: none;
+  }
+  .naari-nav-item:hover {
+    background: #FAFAF7;
+    color: #0D2B55;
+  }
+  .naari-nav-item.active {
+    background: #0D2B55;
+    color: #FFFFFF;
+  }
+  .naari-nav-item.active .naari-nav-icon { color: #FFFFFF; }
+  .naari-nav-icon {
+    width: 18px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    color: #3A4E66;
+    flex-shrink: 0;
+  }
+
+  /* NAARI create button (saffron pill) */
+  .naari-create-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 9px 14px;
+    background: #E07B1A;
+    color: #FFFFFF;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    width: 100%;
+    font-family: 'DM Sans', sans-serif;
+    transition: background 0.15s ease;
+  }
+  .naari-create-btn:hover { background: #c96d12; color: #FFFFFF; }
+
+  /* External-link nav item (Advanced Report) */
+  .naari-nav-item .naari-ext {
+    margin-left: auto;
+    font-size: 10px;
+    color: #7A8FA6;
+  }
+
+  /* Collapsed icon-only buttons */
+  .naari-nav-icon-btn {
+    width: 40px;
+    height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    color: #3A4E66;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .naari-nav-icon-btn:hover { background: #FAFAF7; color: #0D2B55; }
+  .naari-nav-icon-btn.active { background: #0D2B55; color: #FFFFFF; }
+  .naari-nav-icon-btn.saffron { background: #E07B1A; color: #FFFFFF; }
+  .naari-nav-icon-btn.saffron:hover { background: #c96d12; }
+
+  .naari-divider {
+    height: 1px;
+    background: #D8E4F0;
+    margin: 14px 8px;
+  }
+</style>
+{% if can_access_survey %}
+<div x-show="sidebarOpen"
+     x-transition:enter="transition-opacity ease-out duration-300"
+     x-transition:enter-start="opacity-0"
+     x-transition:enter-end="opacity-100"
+     x-transition:leave="transition-opacity ease-in duration-200"
+     x-transition:leave-start="opacity-100"
+     x-transition:leave-end="opacity-0"
+     class="fixed top-16 bottom-0 left-0 right-0 bg-black/30 backdrop-blur-md z-40 lg:hidden"
+     @click="toggleSidebar()"></div>
+
+<!-- Sidebar -->
+<aside
+  class="bg-card/95 backdrop-blur-xl border-r border-border/50 shadow-2xl lg:shadow-none transition-all duration-300 ease-in-out fixed top-16 bottom-0 left-0 z-40 flex flex-col"
+  :class="sidebarCollapsed ? 'w-16' : 'w-full sm:w-64 xl:w-72'"
+  x-show="sidebarOpen"
+  x-transition:enter="transition-all duration-300 ease-out lg:transition-none"
+  x-transition:enter-start="transform -translate-x-full opacity-0 lg:transform-none lg:opacity-100"
+  x-transition:enter-end="transform translate-x-0 opacity-100"
+  x-transition:leave="transition-all duration-200 ease-in lg:transition-none"
+  x-transition:leave-start="transform translate-x-0 opacity-100 lg:transform-none"
+  x-transition:leave-end="transform -translate-x-full opacity-0 lg:transform-none lg:opacity-100"
+  id="sidebar-content">
+
+  <!-- Sidebar Header -->
+  <div class="flex items-center justify-between p-4 border-b border-border/50 lg:hidden bg-card/50 flex-shrink-0">
+    <h2 class="text-lg font-semibold text-card-foreground">{% trans "Survey Navigation" %}</h2>
+    <button @click="toggleSidebar()"
+            class="p-2 rounded-xl hover:bg-accent/60 text-muted-foreground hover:text-card-foreground transition-all duration-200 hover:scale-110 active:scale-95">
+      <i class="fa fa-times text-lg"></i>
+    </button>
+  </div>
+
+  <!-- Navigation Menu -->
+  <nav class="relative flex flex-1 flex-col overflow-y-auto overflow-x-hidden min-h-0" style="padding: 20px 14px 16px">
+
+    <!-- Expanded: Navigation Section -->
+    <div x-show="!sidebarCollapsed">
+      <div class="naari-side-label">{% trans "Navigation" %}</div>
+      <div style="display:flex;flex-direction:column;gap:2px">
+
+        {% if is_admin or is_dashboard_viewer %}
+        <button type="button" onclick="Turbo.visit('{% url 'survey:home' %}')"
+                class="naari-nav-item {% if '/survey/home' in request.path %}active{% endif %}"
+                @click="$event.stopPropagation()">
+          <span class="naari-nav-icon"><i class="fa fa-th-large"></i></span>
+          <span>{% trans "Dashboard" %}</span>
+        </button>
+        {% endif %}
+
+        {% if is_admin or is_dashboard_viewer %}
+        <button type="button" onclick="Turbo.visit('{% url 'survey:survey_list' %}')"
+                class="naari-nav-item {% if request.path|slice:":8" == "/survey/" and '/survey/home' not in request.path and '/survey/report/' not in request.path and '/survey/user-management' not in request.path and '/survey/submissions/' not in request.path %}active{% endif %}"
+                @click="$event.stopPropagation()">
+          <span class="naari-nav-icon"><i class="fa fa-folder-open"></i></span>
+          <span>{% trans "Projects" %}</span>
+        </button>
+        {% endif %}
+
+        {% if is_admin or is_dashboard_viewer %}
+        <button type="button" onclick="Turbo.visit('{% url 'survey:reports_v2' %}')"
+                class="naari-nav-item {% if '/survey/report/' in request.path %}active{% endif %}"
+                @click="$event.stopPropagation()">
+          <span class="naari-nav-icon"><i class="fa fa-bar-chart"></i></span>
+          <span>{% trans "Reports" %}</span>
+        </button>
+        {% endif %}
+
+        {% if is_admin or is_manager or is_dashboard_viewer %}
+        <button type="button" onclick="Turbo.visit('{% url 'survey:user_management' %}')"
+                class="naari-nav-item {% if '/survey/user-management' in request.path %}active{% endif %}"
+                @click="$event.stopPropagation()">
+          <span class="naari-nav-icon"><i class="fa fa-users"></i></span>
+          <span>{% trans "User Management" %}</span>
+        </button>
+        {% endif %}
+      </div>
+
+      {% if is_admin and not is_partner_user %}
+      <div class="naari-divider"></div>
+      <div class="naari-side-label">{% trans "Management" %}</div>
+      <button type="button" onclick="Turbo.visit('{% url 'survey:survey_create' %}')"
+              class="naari-create-btn"
+              @click="$event.stopPropagation()">
+        <i class="fa fa-plus" style="font-size:11px"></i>
+        <span>{% trans "Create Project" %}</span>
+      </button>
+      {% endif %}
+
+    </div>
+
+    <!-- Collapsed: Icon-only nav -->
+    <div x-show="sidebarCollapsed" x-cloak style="display:flex;flex-direction:column;gap:6px;align-items:center">
+      {% if is_admin or is_dashboard_viewer %}
+      <button type="button" onclick="Turbo.visit('{% url 'survey:home' %}')"
+              class="naari-nav-icon-btn {% if '/survey/home' in request.path %}active{% endif %}"
+              title="{% trans 'Dashboard' %}"
+              @click="$event.stopPropagation()">
+        <i class="fa fa-th-large"></i>
+      </button>
+      <button type="button" onclick="Turbo.visit('{% url 'survey:survey_list' %}')"
+              class="naari-nav-icon-btn {% if request.path|slice:":8" == "/survey/" and '/survey/home' not in request.path and '/survey/report/' not in request.path and '/survey/user-management' not in request.path and '/survey/submissions/' not in request.path %}active{% endif %}"
+              title="{% trans 'Projects' %}"
+              @click="$event.stopPropagation()">
+        <i class="fa fa-folder-open"></i>
+      </button>
+      <button type="button" onclick="Turbo.visit('{% url 'survey:reports_v2' %}')"
+              class="naari-nav-icon-btn {% if '/survey/report/' in request.path %}active{% endif %}"
+              title="{% trans 'Reports' %}"
+              @click="$event.stopPropagation()">
+        <i class="fa fa-bar-chart"></i>
+      </button>
+      {% endif %}
+      {% if is_admin or is_manager or is_dashboard_viewer %}
+      <button type="button" onclick="Turbo.visit('{% url 'survey:user_management' %}')"
+              class="naari-nav-icon-btn {% if '/survey/user-management' in request.path %}active{% endif %}"
+              title="{% trans 'User Management' %}"
+              @click="$event.stopPropagation()">
+        <i class="fa fa-users"></i>
+      </button>
+      {% endif %}
+
+      {% if is_admin %}{% if not is_partner_user %}
+      <div class="naari-divider" style="width:100%"></div>
+      <button type="button" onclick="Turbo.visit('{% url 'survey:survey_create' %}')"
+              class="naari-nav-icon-btn saffron"
+              title="{% trans 'Create Project' %}"
+              @click="$event.stopPropagation()">
+        <i class="fa fa-plus"></i>
+      </button>
+      {% endif %}{% endif %}
+
+    </div>
+
+  </nav>
+</aside>
+{% endif %}

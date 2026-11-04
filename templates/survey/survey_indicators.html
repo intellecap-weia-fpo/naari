@@ -1,0 +1,112 @@
+{% extends "base_app.html" %}
+{% load i18n %}
+{% load static %}
+
+{% block title %}{{ survey.title }} - Indicators - {{ site_config.site_name }}{% endblock %}
+
+{% block main_content %}
+  {% csrf_token %}
+  <div class="max-w-6xl mx-auto p-6">
+    <!-- Back Button -->
+    <div class="mb-6">
+      <a href="{% url 'survey:survey_detail' survey.pk %}"
+         class="inline-flex items-center gap-2 px-4 py-2 text-muted-foreground hover:text-card-foreground hover:bg-accent rounded-lg transition-colors">
+        <i class="fa fa-arrow-left text-sm"></i>
+        {% trans "Back to Survey" %}
+      </a>
+    </div>
+
+    <!-- Header -->
+    <div class="bg-gradient-to-br from-primary via-primary/80 to-accent rounded-xl p-8 text-center text-primary-foreground mb-6">
+      <h1 class="text-3xl font-light mb-2">{{ survey.title }}</h1>
+      <p class="text-lg opacity-90">Indicators Management</p>
+    </div>
+
+    <!-- Indicators List -->
+    <div class="bg-card rounded-lg shadow-sm border mb-6">
+      <div class="p-6 border-b">
+        <div class="flex items-center justify-between">
+          <h2 class="text-xl font-semibold">Survey Indicators</h2>
+          <div class="flex items-center gap-3">
+            <a href="{% url 'survey:survey_submissions_indicators' survey.pk %}"
+               class="inline-flex items-center gap-2 px-4 py-2 border border-muted-foreground text-muted-foreground rounded-lg hover:bg-muted transition-colors">
+              <i class="fa fa-table"></i>
+              View Results Table
+            </a>
+            <a href="{% url 'survey:indicator_create' survey.pk %}"
+               class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
+              <i class="fa fa-plus"></i>
+              Add Indicator
+            </a>
+          </div>
+        </div>
+      </div>
+
+      {% if indicators %}
+        <div class="divide-y">
+          {% for indicator in indicators %}
+            <div class="p-6">
+              <div class="flex items-center justify-between">
+                <div class="flex-1">
+                  <h3 class="text-lg font-medium mb-1">{{ indicator.name }}</h3>
+                  {% if indicator.description %}
+                    <p class="text-muted-foreground mb-2">{{ indicator.description }}</p>
+                  {% endif %}
+                  <div class="flex items-center gap-4 text-sm text-muted-foreground">
+                    <span class="flex items-center gap-1">
+                      <i class="fa fa-code"></i>
+                      {{ indicator.script.name }}
+                    </span>
+                    <span class="flex items-center gap-1">
+                      <i class="fa fa-{% if indicator.is_active %}check-circle text-green-600{% else %}times-circle text-red-600{% endif %}"></i>
+                      {% if indicator.is_active %}Active{% else %}Inactive{% endif %}
+                    </span>
+                    <span class="flex items-center gap-1">
+                      <i class="fa fa-calendar"></i>
+                      Created {{ indicator.created_at|date:"M d, Y" }}
+                    </span>
+                  </div>
+                </div>
+                <div class="flex items-center gap-2">
+                  <a href="{% url 'survey:indicator_edit' indicator.pk %}"
+                     class="px-3 py-1 text-sm bg-blue-100 text-blue-800 rounded hover:bg-blue-200 transition-colors">
+                    <i class="fa fa-edit"></i> Edit
+                  </a>
+                  <a href="{% url 'survey:indicator_execute' indicator.pk %}"
+                     class="px-3 py-1 text-sm bg-green-100 text-green-800 rounded hover:bg-green-200 transition-colors">
+                    <i class="fa fa-sync-alt"></i> Refresh Scores
+                  </a>
+                  {% comment %}
+                  <a href="{% url 'survey:indicator_execute_single' survey.pk indicator.pk %}"
+                     class="px-3 py-1 text-sm bg-blue-100 text-blue-800 rounded hover:bg-blue-200 transition-colors">
+                    <i class="fa fa-flask"></i> Test
+                  </a>
+                  {% endcomment %}
+                  <form method="post" action="{% url 'survey:indicator_delete' indicator.pk %}" class="inline">
+                    {% csrf_token %}
+                    <button type="submit" 
+                            onclick="return confirm('Are you sure you want to delete this indicator?')"
+                            class="px-3 py-1 text-sm bg-red-100 text-red-800 rounded hover:bg-red-200 transition-colors">
+                      <i class="fa fa-trash"></i> Delete
+                    </button>
+                  </form>
+                </div>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="p-12 text-center text-muted-foreground">
+          <i class="fa fa-chart-line text-4xl mb-4 opacity-50"></i>
+          <h3 class="text-lg font-medium mb-2">No indicators yet</h3>
+          <p class="mb-4">Create your first indicator to start calculating scores from survey submissions.</p>
+          <a href="{% url 'survey:indicator_create' survey.pk %}"
+             class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
+            <i class="fa fa-plus"></i>
+            Create First Indicator
+          </a>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}

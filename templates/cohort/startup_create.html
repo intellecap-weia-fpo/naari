@@ -1,0 +1,685 @@
+{% extends "base_app.html" %}
+{% load i18n %}
+{% load static %}
+{% block title %}{{ page_title }} - {{ site_config.site_name }}{% endblock %}
+{% block main_content %}
+  <div class="max-w-4xl mx-auto space-y-6">
+    <!-- Page Header -->
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-2xl font-bold text-card-foreground">{{ page_title }}</h1>
+        <p class="text-sm text-muted-foreground mt-1">{{ page_subtitle }}</p>
+      </div>
+      <a href="{{ back_url }}"
+         class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-card-foreground bg-card border border-border rounded-lg hover:bg-accent transition-colors">
+        <i class="fa fa-arrow-left text-xs"></i>
+        {% trans "Back to List" %}
+      </a>
+    </div>
+
+    <!-- Form Card -->
+    <div class="bg-card rounded-xl border border-border shadow-sm">
+      <form method="post" enctype="multipart/form-data" class="divide-y divide-border">
+        {% csrf_token %}
+
+        <!-- Basic Information Section -->
+        <div class="p-6 space-y-6">
+          <h2 class="text-lg font-semibold text-card-foreground">{% trans "Basic Information" %}</h2>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="space-y-2">
+              <label for="{{ form.name.id_for_label }}" class="text-sm font-medium text-card-foreground">
+                {% trans "Startup Name" %} <span class="text-destructive">*</span>
+              </label>
+              {{ form.name }}
+              {% if form.name.errors %}
+                <p class="text-sm text-destructive">{{ form.name.errors.0 }}</p>
+              {% endif %}
+            </div>
+
+            <div class="space-y-2">
+              <label for="{{ form.email.id_for_label }}" class="text-sm font-medium text-card-foreground">
+                {% trans "Contact Email" %}
+              </label>
+              {{ form.email }}
+              {% if form.email.errors %}
+                <p class="text-sm text-destructive">{{ form.email.errors.0 }}</p>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            <label for="{{ form.description.id_for_label }}" class="text-sm font-medium text-card-foreground">
+              Description <span class="text-destructive">*</span>
+            </label>
+            {{ form.description }}
+            {% if form.description.errors %}
+              <p class="text-sm text-destructive">{{ form.description.errors.0 }}</p>
+            {% endif %}
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="space-y-2">
+              <label for="{{ form.website.id_for_label }}" class="text-sm font-medium text-card-foreground">
+                {% trans "Website" %}
+              </label>
+              {{ form.website }}
+              {% if form.website.errors %}
+                <p class="text-sm text-destructive">{{ form.website.errors.0 }}</p>
+              {% endif %}
+            </div>
+
+            <div class="space-y-2">
+              <label for="{{ form.linkedin_url.id_for_label }}" class="text-sm font-medium text-card-foreground">
+                {% trans "LinkedIn URL" %}
+              </label>
+              {{ form.linkedin_url }}
+              {% if form.linkedin_url.errors %}
+                <p class="text-sm text-destructive">{{ form.linkedin_url.errors.0 }}</p>
+              {% endif %}
+            </div>
+
+            <div class="space-y-2">
+              <label for="{{ form.phone.id_for_label }}" class="text-sm font-medium text-card-foreground">
+                {% trans "Phone Number" %}
+              </label>
+              {{ form.phone }}
+              {% if form.phone.errors %}
+                <p class="text-sm text-destructive">{{ form.phone.errors.0 }}</p>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            <label for="{{ form.logo.id_for_label }}" class="text-sm font-medium text-card-foreground">
+              {% trans "Company Logo" %}
+            </label>
+            <div class="flex items-center gap-4">
+              {{ form.logo }}
+              <p class="text-xs text-muted-foreground">PNG, JPG or GIF (max. 5MB)</p>
+            </div>
+            {% if form.logo.errors %}
+              <p class="text-sm text-destructive">{{ form.logo.errors.0 }}</p>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Business Information Section -->
+        <div class="p-6 space-y-6">
+          <h2 class="text-lg font-semibold text-card-foreground">{% trans "Business Information" %}</h2>
+
+          <div class="space-y-6">
+            <!-- Sectors Selection -->
+            <div class="space-y-2">
+              <label class="text-sm font-medium text-card-foreground">
+                {% trans "Business Sectors" %}
+              </label>
+              <div class="space-y-3">
+                <!-- Selected Sectors Display -->
+                <div id="selected-sectors" class="min-h-[40px] p-3 border border-border rounded-lg bg-background">
+                  <div class="flex flex-wrap gap-2" id="selected-sectors-list">
+                    <span class="text-sm text-muted-foreground" id="no-sectors-text">{% trans "No sectors selected" %}</span>
+                  </div>
+                </div>
+
+                <!-- Sector Selection Grid -->
+                <div class="bg-muted/10 p-4 rounded-lg">
+                  <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2" id="sectors-grid">
+                    <!-- Sectors will be populated here -->
+                  </div>
+                </div>
+
+                <!-- Hidden form field for selected sectors -->
+                <div style="display: none;">
+                  {{ form.sectors }}
+                </div>
+
+                {% if form.sectors.errors %}
+                  <p class="text-sm text-destructive">{{ form.sectors.errors.0 }}</p>
+                {% endif %}
+
+                <div class="flex items-center gap-2">
+                  <button type="button" id="add-sector-btn" class="inline-flex items-center gap-1 text-xs px-3 py-1.5 bg-primary/10 text-primary rounded-md hover:bg-primary/20 transition-colors">
+                    <i class="fa fa-plus"></i>
+                    {% trans "Add New Sector" %}
+                  </button>
+                  <p class="text-xs text-muted-foreground">{% trans "Select existing sectors or create new ones" %}</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div class="space-y-2">
+                <label for="{{ form.enterprise_type.id_for_label }}" class="text-sm font-medium text-card-foreground">
+                  {% trans "Enterprise Type" %}
+                </label>
+                {{ form.enterprise_type }}
+                {% if form.enterprise_type.errors %}
+                  <p class="text-sm text-destructive">{{ form.enterprise_type.errors.0 }}</p>
+                {% endif %}
+              </div>
+
+              <div class="space-y-2">
+                <label for="{{ form.stage.id_for_label }}" class="text-sm font-medium text-card-foreground">
+                  {% trans "Stage" %}
+                </label>
+                {{ form.stage }}
+                {% if form.stage.errors %}
+                  <p class="text-sm text-destructive">{{ form.stage.errors.0 }}</p>
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div class="space-y-2">
+                <label for="{{ form.year_of_incorporation.id_for_label }}" class="text-sm font-medium text-card-foreground">
+                  {% trans "Year of Incorporation" %}
+                </label>
+                {{ form.year_of_incorporation }}
+                {% if form.year_of_incorporation.errors %}
+                  <p class="text-sm text-destructive">{{ form.year_of_incorporation.errors.0 }}</p>
+                {% endif %}
+              </div>
+
+              <div class="space-y-2">
+                <label for="{{ form.founded_date.id_for_label }}" class="text-sm font-medium text-card-foreground">
+                  {% trans "Founded Date" %}
+                </label>
+                {{ form.founded_date }}
+                {% if form.founded_date.errors %}
+                  <p class="text-sm text-destructive">{{ form.founded_date.errors.0 }}</p>
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="flex items-center gap-3">
+              {{ form.women_led }}
+              <label for="{{ form.women_led.id_for_label }}" class="text-sm font-medium text-card-foreground cursor-pointer">
+                {% trans "Women-led/owned Enterprise" %}
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Location & Operations Information Section -->
+        <div class="p-6 space-y-6">
+          <h2 class="text-lg font-semibold text-card-foreground">{% trans "Location & Operations" %}</h2>
+
+          <div class="space-y-2">
+            <label for="{{ form.address.id_for_label }}" class="text-sm font-medium text-card-foreground">
+              {% trans "Address" %}
+            </label>
+            {{ form.address }}
+            {% if form.address.errors %}
+              <p class="text-sm text-destructive">{{ form.address.errors.0 }}</p>
+            {% endif %}
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="space-y-2">
+              <label for="{{ form.city.id_for_label }}" class="text-sm font-medium text-card-foreground">
+                {% trans "City" %}
+              </label>
+              {{ form.city }}
+              {% if form.city.errors %}
+                <p class="text-sm text-destructive">{{ form.city.errors.0 }}</p>
+              {% endif %}
+            </div>
+
+            <div class="space-y-2">
+              <label for="{{ form.state.id_for_label }}" class="text-sm font-medium text-card-foreground">
+                {% trans "State" %}
+              </label>
+              {{ form.state }}
+              {% if form.state.errors %}
+                <p class="text-sm text-destructive">{{ form.state.errors.0 }}</p>
+              {% endif %}
+            </div>
+
+            <div class="space-y-2">
+              <label for="{{ form.country.id_for_label }}" class="text-sm font-medium text-card-foreground">
+                {% trans "Country" %}
+              </label>
+              {{ form.country }}
+              {% if form.country.errors %}
+                <p class="text-sm text-destructive">{{ form.country.errors.0 }}</p>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="space-y-2">
+              <label for="{{ form.countries_of_operation.id_for_label }}" class="text-sm font-medium text-card-foreground">
+                {% trans "Countries of Operation" %}
+              </label>
+              {{ form.countries_of_operation }}
+              <p class="text-xs text-muted-foreground">Enter countries separated by commas (e.g., USA, Canada, India)</p>
+              {% if form.countries_of_operation.errors %}
+                <p class="text-sm text-destructive">{{ form.countries_of_operation.errors.0 }}</p>
+              {% endif %}
+            </div>
+
+            <div class="space-y-2">
+              <label for="{{ form.number_of_countries_operation.id_for_label }}" class="text-sm font-medium text-card-foreground">
+                {% trans "Number of Countries for Operations" %}
+              </label>
+              {{ form.number_of_countries_operation }}
+              {% if form.number_of_countries_operation.errors %}
+                <p class="text-sm text-destructive">{{ form.number_of_countries_operation.errors.0 }}</p>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+        <!-- Settings Section -->
+        <div class="p-6 space-y-6">
+          <h2 class="text-lg font-semibold text-card-foreground">{% trans "Settings" %}</h2>
+
+          <div class="flex items-center gap-3">
+            {{ form.is_active }}
+            <label for="{{ form.is_active.id_for_label }}" class="text-sm font-medium text-card-foreground cursor-pointer">
+              {% trans "Active Status" %}
+            </label>
+            <p class="text-xs text-muted-foreground">{% trans "Inactive startups won't be visible to users" %}</p>
+          </div>
+        </div>
+
+        <!-- Form Actions -->
+        <div class="p-6 bg-muted/5 rounded-b-xl">
+          <div class="flex items-center justify-end gap-3">
+            <a href="{{ back_url }}"
+               class="px-4 py-2 text-sm font-medium text-card-foreground bg-card border border-border rounded-lg hover:bg-accent transition-colors">
+              {% trans "Cancel" %}
+            </a>
+            <button type="submit"
+                    class="px-4 py-2 text-sm font-medium text-primary-foreground bg-primary rounded-lg hover:bg-primary/90 transition-colors">
+              {% trans "Create Startup" %}
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add New Sector Modal -->
+  <div id="add-sector-modal" class="fixed inset-0 bg-black/20 backdrop-blur-sm hidden z-50">
+    <div class="flex items-center justify-center min-h-screen p-4">
+      <div class="bg-card rounded-lg shadow-lg max-w-md w-full">
+        <div class="p-6">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-card-foreground">Add New Sector</h3>
+            <button type="button" id="close-modal-btn" class="text-muted-foreground hover:text-card-foreground">
+              <i class="fa fa-times"></i>
+            </button>
+          </div>
+
+          <form id="add-sector-form" class="space-y-4">
+            <div class="space-y-2">
+              <label for="new-sector-name" class="text-sm font-medium text-card-foreground">
+                {% trans "Sector Name" %} <span class="text-destructive">*</span>
+              </label>
+              <input type="text" id="new-sector-name" class="form-control" placeholder="{% trans "e.g., Fintech" %}" required>
+            </div>
+
+            <div class="space-y-2">
+              <label for="new-sector-description" class="text-sm font-medium text-card-foreground">
+                Description
+              </label>
+              <textarea id="new-sector-description" class="form-control" rows="3" placeholder="{% trans "Brief description of the sector" %}"></textarea>
+            </div>
+
+            <div class="flex justify-end gap-2">
+              <button type="button" id="cancel-btn" class="px-4 py-2 text-sm text-card-foreground border border-border rounded hover:bg-accent">
+                Cancel
+              </button>
+              <button type="submit" class="px-4 py-2 text-sm text-primary-foreground bg-primary rounded hover:bg-primary/90">
+                {% trans "Add Sector" %}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Message Container -->
+  <div id="toast-container" class="fixed top-4 right-4 z-50 space-y-2"></div>
+
+  <script>
+  // Global request tracking to prevent duplicate API calls
+  window.activeSectorRequests = window.activeSectorRequests || new Set();
+  
+  // Toast Message System
+  function showToast(message, type = 'success') {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    
+    const bgColor = type === 'success' ? 'bg-green-500' : 'bg-red-500';
+    const icon = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle';
+    
+    toast.className = `${bgColor} text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 transform translate-x-full transition-transform duration-300`;
+    toast.innerHTML = `
+      <i class="fa ${icon}"></i>
+      <span>${message}</span>
+      <button onclick="this.parentElement.remove()" class="ml-2 hover:opacity-75">
+        <i class="fa fa-times"></i>
+      </button>
+    `;
+    
+    container.appendChild(toast);
+    
+    // Animate in
+    setTimeout(() => {
+      toast.classList.remove('translate-x-full');
+    }, 10);
+    
+    // Auto remove after 5 seconds
+    setTimeout(() => {
+      if (toast.parentElement) {
+        toast.classList.add('translate-x-full');
+        setTimeout(() => {
+          if (toast.parentElement) {
+            toast.remove();
+          }
+        }, 300);
+      }
+    }, 5000);
+  }
+  
+  // Alias for compatibility with existing code
+  function showAlert(message, type = 'success') {
+    showToast(message, type);
+  }
+  </script>
+
+  <script>
+  function initializeSectorSelection() {
+    // Prevent multiple initializations
+    if (window.sectorSelectionInitialized) {
+      console.log('Sector selection already initialized, skipping');
+      return;
+    }
+    
+    const addSectorBtn = document.getElementById('add-sector-btn');
+    const modal = document.getElementById('add-sector-modal');
+    const closeModalBtn = document.getElementById('close-modal-btn');
+    const cancelBtn = document.getElementById('cancel-btn');
+    const form = document.getElementById('add-sector-form');
+    const sectorsGrid = document.getElementById('sectors-grid');
+    const selectedSectorsList = document.getElementById('selected-sectors-list');
+    const noSectorsText = document.getElementById('no-sectors-text');
+
+    // Early exit if required elements are not found
+    if (!sectorsGrid || !selectedSectorsList) {
+      console.warn('Sector selection elements not found, skipping initialization');
+      return;
+    }
+
+    // Mark as initialized
+    window.sectorSelectionInitialized = true;
+    console.log('Initializing sector selection');
+
+    let selectedSectors = new Set();
+    let allSectors = [];
+
+    // Load initial sectors
+    loadSectors();
+
+    async function loadSectors() {
+      try {
+        const response = await fetch('/api/sectors/', {
+          method: 'GET',
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+          },
+          credentials: 'same-origin'
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+
+        if (data.status === 'success') {
+          allSectors = data.sectors;
+          renderSectorsGrid();
+
+          // Initialize with any pre-selected sectors from form
+          const hiddenCheckboxes = document.querySelectorAll('input[name="sectors"]:checked');
+          hiddenCheckboxes.forEach(checkbox => {
+            selectedSectors.add(parseInt(checkbox.value));
+          });
+          updateSelectedDisplay();
+        } else {
+          console.error('API returned error:', data.message);
+          showToast('Error loading sectors: ' + data.message, 'error');
+        }
+      } catch (error) {
+        console.error('Error loading sectors:', error);
+        showToast('Error loading sectors. Please refresh the page.', 'error');
+        if (sectorsGrid) {
+          sectorsGrid.innerHTML = '<p class="text-red-500">{% trans "Error loading sectors. Please refresh the page." %}</p>';
+        }
+      }
+    }
+
+    function renderSectorsGrid() {
+      if (!sectorsGrid) {
+        console.error('Sectors grid element not found');
+        return;
+      }
+
+      sectorsGrid.innerHTML = '';
+
+      if (allSectors.length === 0) {
+        sectorsGrid.innerHTML = '<p class="text-muted-foreground">{% trans "No sectors available" %}</p>';
+        return;
+      }
+
+      allSectors.forEach(sector => {
+        const isSelected = selectedSectors.has(sector.id);
+        const sectorBtn = document.createElement('button');
+        sectorBtn.type = 'button';
+        sectorBtn.className = `p-2 text-sm rounded-lg border transition-all ${
+          isSelected
+            ? 'bg-primary text-primary-foreground border-primary'
+            : 'bg-background hover:bg-accent border-border hover:border-primary'
+        }`;
+        sectorBtn.textContent = sector.name;
+        sectorBtn.title = sector.description || sector.name;
+
+        sectorBtn.addEventListener('click', () => {
+          toggleSector(sector.id, sector.name);
+        });
+
+        sectorsGrid.appendChild(sectorBtn);
+      });
+    }
+
+    function toggleSector(sectorId, sectorName) {
+      if (selectedSectors.has(sectorId)) {
+        selectedSectors.delete(sectorId);
+      } else {
+        selectedSectors.add(sectorId);
+      }
+
+      renderSectorsGrid();
+      updateSelectedDisplay();
+      updateHiddenField();
+    }
+
+    function updateSelectedDisplay() {
+      selectedSectorsList.innerHTML = '';
+
+      if (selectedSectors.size === 0) {
+        noSectorsText.style.display = 'block';
+        selectedSectorsList.appendChild(noSectorsText);
+      } else {
+        noSectorsText.style.display = 'none';
+
+        selectedSectors.forEach(sectorId => {
+          const sector = allSectors.find(s => s.id === sectorId);
+          if (sector) {
+            const tag = document.createElement('span');
+            tag.className = 'inline-flex items-center gap-1 px-2 py-1 bg-primary/10 text-primary text-xs rounded-md';
+            tag.innerHTML = `
+              ${sector.name}
+              <button type="button" class="hover:bg-primary/20 rounded p-0.5" onclick="removeSector(${sectorId})">
+                <i class="fa fa-times text-xs"></i>
+              </button>
+            `;
+            selectedSectorsList.appendChild(tag);
+          }
+        });
+      }
+    }
+
+    function updateHiddenField() {
+      // Update the hidden Django form field
+      const hiddenCheckboxes = document.querySelectorAll('input[name="sectors"]');
+      hiddenCheckboxes.forEach(checkbox => {
+        checkbox.checked = selectedSectors.has(parseInt(checkbox.value));
+      });
+    }
+
+    // Global function to remove sector (called from tag buttons)
+    window.removeSector = function(sectorId) {
+      selectedSectors.delete(sectorId);
+      renderSectorsGrid();
+      updateSelectedDisplay();
+      updateHiddenField();
+    };
+
+    // Modal functions
+    addSectorBtn.addEventListener('click', function() {
+      modal.classList.remove('hidden');
+      document.getElementById('new-sector-name').focus();
+    });
+
+    function hideModal() {
+      modal.classList.add('hidden');
+      form.reset();
+    }
+
+    closeModalBtn.addEventListener('click', hideModal);
+    cancelBtn.addEventListener('click', hideModal);
+
+    modal.addEventListener('click', function(e) {
+      if (e.target === modal) {
+        hideModal();
+      }
+    });
+
+    // Handle new sector creation
+    let isSubmitting = false;
+    form.addEventListener('submit', async function(e) {
+      e.preventDefault();
+
+      // Prevent double submission
+      if (isSubmitting) {
+        return;
+      }
+      isSubmitting = true;
+
+      const submitButton = form.querySelector('button[type="submit"]');
+      const originalText = submitButton.innerHTML;
+      submitButton.disabled = true;
+      submitButton.innerHTML = '<i class="fa fa-spinner fa-spin mr-2"></i>Creating...';
+
+      const name = document.getElementById('new-sector-name').value.trim();
+      const description = document.getElementById('new-sector-description').value.trim();
+
+      if (!name) {
+        showAlert('Please enter a sector name', 'error');
+        // Reset form state
+        isSubmitting = false;
+        submitButton.disabled = false;
+        submitButton.innerHTML = originalText;
+        return;
+      }
+
+      // Check for duplicate global requests
+      const requestKey = `create_sector_${name.toLowerCase()}`;
+      if (window.activeSectorRequests.has(requestKey)) {
+        showAlert('Request for this sector is already in progress', 'error');
+        // Reset form state
+        isSubmitting = false;
+        submitButton.disabled = false;
+        submitButton.innerHTML = originalText;
+        return;
+      }
+      
+      // Add to active requests
+      window.activeSectorRequests.add(requestKey);
+
+      try {
+        const response = await fetch('/api/sectors/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+          },
+          body: JSON.stringify({
+            name: name,
+            description: description
+          })
+        });
+
+        const data = await response.json();
+
+        if (data.status === 'success') {
+          // Add the new sector to our list
+          allSectors.push(data.sector);
+
+          // Add hidden checkbox for Django form
+          const hiddenContainer = document.querySelector('div[style="display: none;"]');
+          const newCheckbox = document.createElement('input');
+          newCheckbox.type = 'checkbox';
+          newCheckbox.name = 'sectors';
+          newCheckbox.value = data.sector.id;
+          newCheckbox.id = `id_sectors_${data.sector.id}`;
+          hiddenContainer.appendChild(newCheckbox);
+
+          // Auto-select the new sector
+          selectedSectors.add(data.sector.id);
+
+          // Re-render everything
+          renderSectorsGrid();
+          updateSelectedDisplay();
+          updateHiddenField();
+
+          hideModal();
+
+          // Show success toast
+          showToast('Sector created and selected successfully!', 'success');
+        } else {
+          showAlert(data.message || 'Error creating sector', 'error');
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        showAlert('Error creating sector. Please try again.', 'error');
+      } finally {
+        // Always reset form state and remove from active requests
+        window.activeSectorRequests.delete(requestKey);
+        isSubmitting = false;
+        submitButton.disabled = false;
+        submitButton.innerHTML = originalText;
+      }
+    });
+  }
+
+  // Reset initialization flag on navigation
+  document.addEventListener('turbo:before-visit', function() {
+    window.sectorSelectionInitialized = false;
+  });
+  
+  document.addEventListener('turbo:before-cache', function() {
+    window.sectorSelectionInitialized = false;
+  });
+
+  // Initialize on both DOMContentLoaded (for normal page loads) and Turbo events
+  document.addEventListener('DOMContentLoaded', initializeSectorSelection);
+  document.addEventListener('turbo:load', initializeSectorSelection);
+  document.addEventListener('turbo:render', initializeSectorSelection);
+  </script>
+{% endblock %}

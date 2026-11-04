@@ -1,0 +1,35 @@
+You're Invited to Join {{ startup.name }}!
+
+Hello!
+
+{{ invitation.invited_by.get_full_name|default:invitation.invited_by.username }} has invited you to join the {{ startup.name }} startup team on {{ site_name }}.
+
+About {{ startup.name }}:
+{{ startup.description }}
+
+Industry: {{ startup.get_industry_display }}
+{% if startup.stage %}Stage: {{ startup.get_stage_display }}{% endif %}
+Your Role: {{ invitation.get_role_display }}
+
+{% if invitation.role == 'admin' %}As an Admin, you'll be able to:
+- Manage team members and invitations
+- Edit startup information
+- Access all startup resources
+- Collaborate with the team
+{% else %}As a Member, you'll be able to:
+- Access startup resources
+- Collaborate with the team
+- Participate in discussions
+- View team information
+{% endif %}
+
+To accept this invitation, click the link below:
+{{ invitation_url }}
+
+IMPORTANT: This invitation expires on {{ invitation.expires_at|date:"F d, Y" }} at {{ invitation.expires_at|time:"g:i A" }}.
+
+If you're not interested in joining this startup, you can simply ignore this email or use the link above to decline the invitation.
+
+---
+This invitation was sent by {{ invitation.invited_by.get_full_name|default:invitation.invited_by.username }} from {{ startup.name }}.
+© {{ site_name }} - Building the future, one startup at a time.

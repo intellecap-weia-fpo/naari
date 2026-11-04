@@ -1,0 +1,383 @@
+{% load i18n %}
+{% load static %}
+{% load solo_tags %}
+{% get_solo 'neo.SiteConfiguration' as site_config %}
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Dynamic Title -->
+    <title>
+      {% block title %}{{ site_config.site_name }}{% endblock %}
+    </title>
+    <!-- Favicon -->
+    {% if site_config.favicon %}<link rel="icon" type="image/x-icon" href="{{ site_config.favicon.url }}">{% endif %}
+    <!-- Meta Description -->
+    <meta name="description"
+          content=" {% block meta_description %}{{ site_config.site_name }} - Survey tools for measuring women’s empowerment in agriculture{% endblock %}">
+    <!-- CSS -->
+    <link rel="stylesheet" href="{% static 'css/output.css' %}">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap"
+          rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet"
+          href="https://static.oracle.com/cdn/apex/24.2.6/libraries/font-apex/2.4/css/font-apex.min.css?v=24.2.6"
+          type="text/css">
+    <!-- Dynamic Theme Colors -->
+    <style>
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+        }
+
+        :root {
+            --primary: {{ primary_color }};
+            --secondary: {{ secondary_color }};
+        }
+
+        /* Ensure notification container has the highest z-index */
+        #globalMessageContainer {
+            z-index: 999999 !important;
+            pointer-events: none; /* Allow clicking through the container */
+        }
+        
+        #globalMessageContainer > * {
+            pointer-events: all; /* But allow clicking on the actual notifications */
+        }
+
+        /* Global loader styles */
+        .btn-loader {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+        }
+        
+        .btn-loader .spinner {
+          width: 16px;
+          height: 16px;
+          border: 2px solid transparent;
+          border-top: 2px solid currentColor;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+          margin-right: 8px;
+        }
+        
+        .btn-loader .btn-text {
+          transition: opacity 0.2s;
+        }
+        
+        .btn-loader.loading .btn-text {
+          opacity: 0.7;
+        }
+        
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        
+        .btn-loader:disabled {
+          opacity: 0.7;
+          cursor: not-allowed;
+        }
+    </style>
+    
+    {% block extra_css %}
+    {% endblock extra_css %}
+    <!-- Extra Head Content -->
+    {% block extra_head %}{% endblock %}
+  </head>
+  <body class="{% block body_class %}bg-background text-foreground{% endblock %}"
+        data-theme="{{ site_config.theme_mode }}">
+    <!-- Maintenance Mode Banner -->
+    {% if site_config.maintenance_mode %}
+      <div class="bg-yellow-500 text-yellow-900 text-center py-2 px-4 text-sm font-medium">
+        <i class="fa fa-exclamation-triangle mr-2"></i>
+        {% trans "System is currently under maintenance. Some features may be temporarily unavailable." %}
+      </div>
+    {% endif %}
+    
+    <!-- Global Message Container with maximum z-index -->
+    <div id="globalMessageContainer" 
+         class="fixed top-4 right-4 space-y-3" 
+         style="display: none; z-index: 2147483647;">
+      <!-- Messages will be dynamically inserted here -->
+    </div>
+    
+    <!-- Main Content -->
+    {% block content %}{% endblock %}
+    <!-- JavaScript -->
+    <script>
+        // Global site configuration
+        window.siteConfig = {
+            siteName: '{{ site_config.site_name|escapejs }}',
+            companyName: '{{ site_config.company_name|escapejs }}',
+            themeMode: '{{ site_config.theme_mode }}',
+            primaryColor: '{{ site_config.primary_color }}',
+            secondaryColor: '{{ site_config.secondary_color }}',
+            timezone: '{{ site_config.timezone }}',
+            dateFormat: '{{ site_config.date_format }}',
+            timeFormat: '{{ site_config.time_format }}'
+        };
+
+        // Theme handling
+        function applyTheme() {
+            const theme = window.siteConfig.themeMode;
+            const html = document.documentElement;
+
+            html.style.transition = 'color-scheme 0.3s ease';
+
+            if (theme === 'auto') {
+                const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                html.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
+                html.style.colorScheme = prefersDark ? 'dark' : 'light';
+            } else {
+                html.setAttribute('data-theme', theme);
+                html.style.colorScheme = theme;
+            }
+
+            setTimeout(() => {
+                html.style.removeProperty('transition');
+            }, 300);
+        }
+
+        // Apply theme on load
+        applyTheme();
+
+        // Listen for system theme changes if auto mode
+        if (window.siteConfig.themeMode === 'auto') {
+            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+        }
+    </script>
+    
+    <!-- Global Alert System -->
+    <script>
+        // Global message handling functions
+        function showMessage(message, type = 'info') {
+          const messageContainer = document.getElementById('globalMessageContainer');
+          
+          // Check if a notification with the same message already exists
+          const existingMessages = messageContainer.querySelectorAll('.notification-message');
+          for (let i = 0; i < existingMessages.length; i++) {
+            const existingMessage = existingMessages[i];
+            const existingText = existingMessage.querySelector('.notification-text');
+            if (existingText && existingText.textContent === message) {
+              // Message already exists, reset its timer and return
+              const existingTimeout = existingMessage.timeoutId;
+              if (existingTimeout) {
+                clearTimeout(existingTimeout);
+              }
+              
+              // Reset the auto-remove timer
+              const newTimeout = setTimeout(() => {
+                removeMessage(existingMessage);
+              }, 5000);
+              
+              existingMessage.timeoutId = newTimeout;
+              return;
+            }
+          }
+          
+          const messageDiv = document.createElement('div');
+          messageDiv.className = 'notification-message';
+          
+          // Define styles based on message type
+          const typeConfig = {
+            'success': {
+              icon: 'fa-check-circle',
+              iconColor: 'text-green-600',
+              bg: 'bg-green-50 border-green-200 text-green-800'
+            },
+            'error': {
+              icon: 'fa-exclamation-triangle',
+              iconColor: 'text-red-600',
+              bg: 'bg-red-50 border-red-200 text-red-800'
+            },
+            'warning': {
+              icon: 'fa-exclamation-circle',
+              iconColor: 'text-yellow-600',
+              bg: 'bg-yellow-50 border-yellow-200 text-yellow-800'
+            },
+            'info': {
+              icon: 'fa-info-circle',
+              iconColor: 'text-blue-600',
+              bg: 'bg-blue-50 border-blue-200 text-blue-800'
+            }
+          };
+          
+          const config = typeConfig[type] || typeConfig.info;
+          
+          // Use inline styles with maximum z-index to ensure visibility
+          messageDiv.className += ` relative rounded-xl border p-4 shadow-lg transition-all duration-300 ${config.bg}`;
+          messageDiv.style.cssText = 'z-index: 2147483647; position: relative; box-shadow: 0 10px 25px rgba(0,0,0,0.1);';
+          messageDiv.innerHTML = `
+            <div class="flex items-start">
+              <div class="flex-shrink-0">
+                <i class="fa ${config.icon} ${config.iconColor} text-xl"></i>
+              </div>
+              <div class="ml-3 flex-1">
+                <p class="text-sm font-medium notification-text">${message}</p>
+              </div>
+              <button onclick="removeMessage(this.parentElement.parentElement)" class="ml-3 flex-shrink-0 hover:opacity-75 transition-opacity">
+                <i class="fa fa-times text-sm"></i>
+              </button>
+            </div>
+          `;
+          
+          messageContainer.appendChild(messageDiv);
+          messageContainer.style.display = 'block';
+          
+          // Add entrance animation
+          messageDiv.style.transform = 'translateX(100%)';
+          messageDiv.style.opacity = '0';
+          
+          requestAnimationFrame(() => {
+            messageDiv.style.transform = 'translateX(0)';
+            messageDiv.style.opacity = '1';
+          });
+          
+          // Auto-remove after 5 seconds
+          const timeoutId = setTimeout(() => {
+            removeMessage(messageDiv);
+          }, 5000);
+          
+          // Store timeout ID on the message element for potential reset
+          messageDiv.timeoutId = timeoutId;
+        }
+        
+        // Function to remove a message with animation
+        function removeMessage(messageDiv) {
+          if (messageDiv && messageDiv.parentElement) {
+            // Add exit animation
+            messageDiv.style.transform = 'translateX(100%)';
+            messageDiv.style.opacity = '0';
+            
+            setTimeout(() => {
+              if (messageDiv.parentElement) {
+                messageDiv.remove();
+                const messageContainer = document.getElementById('globalMessageContainer');
+                if (messageContainer.children.length === 0) {
+                  messageContainer.style.display = 'none';
+                }
+              }
+            }, 300);
+          }
+        }
+        
+        // Global alert replacement function
+        function showAlert(message, type = 'info') {
+          showMessage(message, type);
+        }
+        
+        // Test function to verify notifications work
+        function testNotification() {
+          showMessage('Test notification - if you can see this, the fix worked!', 'success');
+        }
+        
+        // Global loader functionality
+        function setButtonLoading(button, isLoading = true, loadingText = 'Loading...') {
+          if (!button) return;
+          
+          if (isLoading) {
+            // Add loader classes and structure if not already present
+            if (!button.classList.contains('btn-loader')) {
+              button.classList.add('btn-loader');
+              
+              // Create spinner if not exists
+              if (!button.querySelector('.spinner')) {
+                const spinner = document.createElement('span');
+                spinner.className = 'spinner';
+                spinner.style.display = 'none';
+                button.prepend(spinner);
+              }
+              
+              // Wrap text in span if not exists
+              const textElements = button.querySelectorAll('*');
+              let hasTextSpan = false;
+              for (let el of textElements) {
+                if (el.classList.contains('btn-text')) {
+                  hasTextSpan = true;
+                  break;
+                }
+              }
+              
+              if (!hasTextSpan) {
+                const textNodes = [];
+                for (let node of button.childNodes) {
+                  if (node.nodeType === 3 && node.textContent.trim()) {
+                    textNodes.push(node);
+                  }
+                }
+                
+                if (textNodes.length > 0) {
+                  const textSpan = document.createElement('span');
+                  textSpan.className = 'btn-text';
+                  textSpan.textContent = textNodes[0].textContent;
+                  
+                  // Replace text nodes with span
+                  textNodes.forEach(node => node.remove());
+                  button.appendChild(textSpan);
+                }
+              }
+            }
+            
+            // Show loading state
+            button.disabled = true;
+            button.classList.add('loading');
+            const spinner = button.querySelector('.spinner');
+            const btnText = button.querySelector('.btn-text');
+            
+            if (spinner) {
+              spinner.style.display = 'inline-block';
+            }
+            
+            if (btnText) {
+              btnText.textContent = loadingText;
+            }
+          } else {
+            // Remove loading state
+            button.disabled = false;
+            button.classList.remove('loading');
+            const spinner = button.querySelector('.spinner');
+            const btnText = button.querySelector('.btn-text');
+            
+            if (spinner) {
+              spinner.style.display = 'none';
+            }
+            
+            if (btnText) {
+              // Try to restore original text from data attribute or use default
+              const originalText = button.dataset.originalText || 'Submit';
+              btnText.textContent = originalText;
+            }
+          }
+        }
+        
+        // Helper function to handle async operations with loading state
+        async function withButtonLoading(button, asyncFunction, loadingText = 'Loading...') {
+          if (!button) return;
+          
+          // Store original text
+          const btnText = button.querySelector('.btn-text') || button;
+          button.dataset.originalText = btnText.textContent;
+          
+          // Set loading state
+          setButtonLoading(button, true, loadingText);
+          
+          try {
+            const result = await asyncFunction();
+            return result;
+          } catch (error) {
+            throw error;
+          } finally {
+            // Always remove loading state
+            setButtonLoading(button, false);
+          }
+        }
+      </script>
+    
+    {% block extra_js %}{% endblock %}
+  </body>
+</html>

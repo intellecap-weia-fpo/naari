@@ -1,0 +1,79 @@
+{% extends "base_app.html" %}
+{% load i18n %}
+{% load static %}
+{% block title %}{{ title }} - {{ site_config.site_name }}{% endblock %}
+{% block main_content %}
+  <div class="space-y-6">
+    <!-- Header -->
+    <div class="bg-card rounded-lg border border-border p-6">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 class="text-2xl font-bold text-card-foreground">{{ title }}</h1>
+          <p class="text-muted-foreground">
+            {% if page %}
+              Update page details for "{{ survey.title }}"
+            {% else %}
+              Add a new page to "{{ survey.title }}"
+            {% endif %}
+          </p>
+        </div>
+        <div class="flex items-center gap-2">
+          <a href="{% url 'survey:survey_detail' survey.pk %}"
+             class="inline-flex items-center gap-2 px-4 py-2 border border-border rounded-lg text-sm font-medium text-card-foreground bg-background hover:bg-accent transition-colors">
+            <i class="fa fa-arrow-left text-xs"></i>
+            {% trans "Back to Survey" %}
+          </a>
+        </div>
+      </div>
+    </div>
+    <!-- Form -->
+    <div class="bg-card rounded-lg border border-border p-6">
+      <form method="post" class="space-y-6">
+        {% csrf_token %}
+        <!-- Page Title -->
+        <div class="space-y-2">
+          <label for="{{ form.title.id_for_label }}"
+                 class="block text-sm font-medium text-card-foreground">{% trans "Page Title" %}</label>
+          {{ form.title }}
+          {% if form.title.errors %}<div class="text-sm text-destructive">{{ form.title.errors|first }}</div>{% endif %}
+          <p class="text-xs text-muted-foreground">Give this page a descriptive title (optional)</p>
+        </div>
+        <!-- Page Description -->
+        <div class="space-y-2">
+          <label for="{{ form.description.id_for_label }}"
+                 class="block text-sm font-medium text-card-foreground">Description</label>
+          {{ form.description }}
+          {% if form.description.errors %}
+            <div class="text-sm text-destructive">{{ form.description.errors|first }}</div>
+          {% endif %}
+          <p class="text-xs text-muted-foreground">Provide instructions or context for this page (optional)</p>
+        </div>
+        <!-- Page Order -->
+        <div class="space-y-2">
+          <label for="{{ form.order.id_for_label }}"
+                 class="block text-sm font-medium text-card-foreground">{% trans "Page Order" %}</label>
+          {{ form.order }}
+          {% if form.order.errors %}<div class="text-sm text-destructive">{{ form.order.errors|first }}</div>{% endif %}
+          <p class="text-xs text-muted-foreground">The order in which this page appears in the survey (0 = first)</p>
+        </div>
+        <!-- Form Actions -->
+        <div class="flex flex-col sm:flex-row gap-3 pt-6 border-t border-border">
+          <button type="submit"
+                  class="inline-flex items-center justify-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:bg-primary/90 transition-all duration-200 shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30">
+            <i class="fa fa-save text-sm"></i>
+            {% if page %}
+              Update Page
+            {% else %}
+              Create Page
+            {% endif %}
+          </button>
+          <a href="{% url 'survey:survey_detail' survey.pk %}"
+             class="inline-flex items-center justify-center gap-2 px-6 py-3 border border-border rounded-lg text-sm font-medium text-card-foreground bg-background hover:bg-accent transition-colors">
+            <i class="fa fa-times text-sm"></i>
+            {% trans "Cancel" %}
+          </a>
+        </div>
+      </form>
+    </div>
+  </div>
+{% endblock %}

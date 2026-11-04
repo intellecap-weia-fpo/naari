@@ -1,0 +1,366 @@
+{% extends "base_app.html" %}
+{% load i18n %}
+{% load static %}
+
+{% block title %}{% trans "Your Profile" %} - {{ block.super }}{% endblock %}
+
+{% block main_content %}
+<div class="container mx-auto px-4 py-8 max-w-6xl">
+  <!-- Profile Header with Cover Image -->
+  <div class="relative mb-8">
+    <div class="pl-6 flex items-center justify-start h-48 md:h-64 bg-gradient-to-br from-primary/20 to-primary/10 rounded-2xl overflow-hidden relative">
+      {% if profile.cover_image %}
+        <img src="{{ profile.cover_image.url }}" alt="{% trans "Cover" %}" class="w-full h-full object-cover">
+      {% else %}
+        <div class="absolute inset-0 bg-gradient-to-br from-primary/30 to-primary/10"></div>
+      {% endif %}
+
+      <!-- Profile Picture -->
+      <div class="">
+        <div class="relative">
+          <div class="w-32 h-32 rounded-full bg-background border-4 border-background shadow-xl overflow-hidden">
+            {% if profile.profile_image %}
+              <img src="{{ profile.profile_image.url }}" alt="{% trans "Profile" %}" class="w-full h-full object-cover">
+            {% else %}
+              <div class="w-full h-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center">
+                <i class="fa fa-user text-xl text-primary-foreground" style="font-size: 42px"></i>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      <!-- Profile Info -->
+      <div class="mt-20 px-8">
+        <h1 class="text-3xl font-bold text-foreground">
+          {% if user.first_name or user.last_name %}
+            {{ user.first_name }} {{ user.last_name }}
+          {% else %}
+            {{ user.username }}
+          {% endif %}
+        </h1>
+        <div class="flex items-center mt-1 space-x-2">
+          <p class="text-muted-foreground">@{{ user.username }}</p>
+          {% if profile.email_verified %}
+            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+              <i class="fa fa-check-circle mr-1"></i>
+              {% trans "Verified" %}
+            </span>
+          {% else %}
+            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+              <i class="fa fa-exclamation-triangle mr-1"></i>
+              {% trans "Unverified" %}
+            </span>
+          {% endif %}
+        </div>
+        {% if profile.bio %}
+          <p class="text-foreground mt-3 max-w-3xl">{{ profile.bio }}</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Messages -->
+  {% if messages %}
+    <div class="mb-6 space-y-2">
+      {% for message in messages %}
+        <div class="px-4 py-3 rounded-lg {% if message.tags == 'error' %}bg-destructive/10 border border-destructive/20 text-destructive{% else %}bg-primary/10 border border-primary/20 text-primary{% endif %}">
+          {{ message }}
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <!-- Email Verification Warning -->
+  {% if not profile.email_verified %}
+    <div class="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+      <div class="flex items-start">
+        <div class="flex-shrink-0">
+          <i class="fa fa-exclamation-triangle text-xl text-yellow-600"></i>
+        </div>
+        <div class="ml-3 flex-1">
+          <h3 class="text-sm font-medium text-yellow-800">
+            {% trans "Email Verification Required" %}
+          </h3>
+          <p class="text-sm text-yellow-700 mt-1">
+            {% trans "Your email address" %} <strong>{{ user.email }}</strong> {% trans "has not been verified. Please check your inbox for a verification email or request a new one." %}
+          </p>
+          <div class="mt-4">
+            <form method="post" action="{% url 'auth_app:send_verification' %}" class="inline">
+              {% csrf_token %}
+              <button type="submit"
+                      class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-yellow-800 bg-yellow-100 hover:bg-yellow-200 transition-colors">
+                <i class="fa fa-envelope mr-1"></i>
+                {% trans "Resend Verification Email" %}
+              </button>
+            </form>
+          </div>
+        </div>
+        <div class="ml-4 flex-shrink-0">
+          <button onclick="this.parentElement.parentElement.parentElement.style.display='none'"
+                  class="inline-flex text-yellow-400 hover:text-yellow-600 focus:outline-none">
+            <i class="fa fa-times text-base"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- Tabs -->
+  <div class="bg-card rounded-2xl shadow-sm border border-border/50" x-data="{ activeTab: 'profile' }">
+    <!-- Tab Navigation -->
+    <div class="border-b border-border/50">
+      <div class="flex space-x-8 px-6">
+        <button @click="activeTab = 'profile'"
+                :class="activeTab === 'profile' ? 'text-primary border-b-2 border-primary' : 'text-muted-foreground hover:text-foreground'"
+                class="py-4 px-1 font-medium transition-colors flex justify-center items-center">
+          <i class="fa fa-user mr-2"></i>
+          {% trans "Profile Information" %}
+        </button>
+        <button @click="activeTab = 'password'"
+                :class="activeTab === 'password' ? 'text-primary border-b-2 border-primary' : 'text-muted-foreground hover:text-foreground'"
+                class="py-4 px-1 font-medium transition-colors flex justify-center items-center">
+          <i class="fa fa-lock mr-2"></i>
+          {% trans "Change Password" %}
+        </button>
+      </div>
+    </div>
+
+    <!-- Tab Content -->
+    <div class="p-6">
+      <!-- Profile Information Tab -->
+      <div x-show="activeTab === 'profile'" x-cloak>
+        <form method="post" enctype="multipart/form-data">
+          {% csrf_token %}
+          <input type="hidden" name="update_profile" value="1">
+
+          <div class="space-y-6">
+            <!-- Basic Information -->
+            <div>
+              <h3 class="text-lg font-semibold text-foreground mb-4">{% trans "Basic Information" %}</h3>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label for="first_name" class="block text-sm font-medium text-foreground mb-2">{% trans "First Name" %}</label>
+                  <input type="text"
+                         id="first_name"
+                         name="first_name"
+                         value="{{ user.first_name|default:'' }}"
+                         class="w-full px-4 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary">
+                </div>
+                <div>
+                  <label for="last_name" class="block text-sm font-medium text-foreground mb-2">{% trans "Last Name" %}</label>
+                  <input type="text"
+                         id="last_name"
+                         name="last_name"
+                         value="{{ user.last_name|default:'' }}"
+                         class="w-full px-4 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary">
+                </div>
+                <div>
+                  <label for="email" class="block text-sm font-medium text-foreground mb-2">
+                    {% trans "Email Address" %}
+                    {% if profile.email_verified %}
+                      <span class="inline-flex items-center ml-2 px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        <i class="fa fa-check-circle mr-1"></i>
+                        {% trans "Verified" %}
+                      </span>
+                    {% else %}
+                      <span class="inline-flex items-center ml-2 px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                        <i class="fa fa-times-circle mr-1"></i>
+                        {% trans "Not Verified" %}
+                      </span>
+                    {% endif %}
+                  </label>
+                  <input type="email"
+                         id="email"
+                         name="email"
+                         value="{{ user.email|default:'' }}"
+                         required
+                         class="w-full px-4 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary">
+                  {% if not profile.email_verified %}
+                    <p class="text-xs text-red-600 mt-1">
+                      <i class="fa fa-exclamation-triangle mr-1"></i>
+                      {% trans "Please verify your email address to secure your account." %}
+                    </p>
+                  {% endif %}
+                </div>
+                <div>
+                  <label for="username" class="block text-sm font-medium text-foreground mb-2">{% trans "Username" %}</label>
+                  <input type="text"
+                         id="username"
+                         value="{{ user.username }}"
+                         disabled
+                         class="w-full px-4 py-2 border border-border rounded-lg bg-muted text-muted-foreground cursor-not-allowed">
+                  <p class="text-xs text-muted-foreground mt-1">{% trans "Username cannot be changed" %}</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Profile Details -->
+            <div>
+              <h3 class="text-lg font-semibold text-foreground mb-4">{% trans "Profile Details" %}</h3>
+              <div class="space-y-4">
+                <div>
+                  <label for="bio" class="block text-sm font-medium text-foreground mb-2">{% trans "Bio" %}</label>
+                  <textarea id="bio"
+                            name="bio"
+                            rows="4"
+                            maxlength="500"
+                            class="w-full px-4 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary">{{ profile.bio|default:'' }}</textarea>
+                  <p class="text-xs text-muted-foreground mt-1">{% trans "Maximum 500 characters" %}</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label for="phone" class="block text-sm font-medium text-foreground mb-2">{% trans "Phone Number" %}</label>
+                    <input type="tel"
+                           id="phone"
+                           name="phone"
+                           value="{{ profile.phone|default:'' }}"
+                           class="w-full px-4 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary">
+                  </div>
+                  <div>
+                    <label for="location" class="block text-sm font-medium text-foreground mb-2">{% trans "Location" %}</label>
+                    <input type="text"
+                           id="location"
+                           name="location"
+                           value="{{ profile.location|default:'' }}"
+                           class="w-full px-4 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary">
+                  </div>
+                  <div>
+                    <label for="website" class="block text-sm font-medium text-foreground mb-2">{% trans "Website" %}</label>
+                    <input type="url"
+                           id="website"
+                           name="website"
+                           value="{{ profile.website|default:'' }}"
+                           placeholder="https://"
+                           class="w-full px-4 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary">
+                  </div>
+                  <div>
+                    <label for="preferred_language" class="block text-sm font-medium text-foreground mb-2">{% trans "Preferred Language" %}</label>
+                    <select id="preferred_language"
+                            name="preferred_language"
+                            class="w-full px-4 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary">
+                      {% for code, name in languages %}
+                        <option value="{{ code }}" {% if profile.preferred_language == code %}selected{% endif %}>{{ name }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Profile Images -->
+            <div>
+              <h3 class="text-lg font-semibold text-foreground mb-4">{% trans "Profile Images" %}</h3>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label for="profile_image" class="block text-sm font-medium text-foreground mb-2">{% trans "Profile Picture" %}</label>
+                  <input type="file"
+                         id="profile_image"
+                         name="profile_image"
+                         accept="image/*"
+                         class="w-full px-4 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary file:mr-4 file:py-1 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20">
+                  {% if profile.profile_image %}
+                    <p class="text-xs text-muted-foreground mt-1">{% trans "Current:" %} {{ profile.profile_image.name|truncatechars:30 }}</p>
+                  {% endif %}
+                </div>
+                <div>
+                  <label for="cover_image" class="block text-sm font-medium text-foreground mb-2">{% trans "Cover Image" %}</label>
+                  <input type="file"
+                         id="cover_image"
+                         name="cover_image"
+                         accept="image/*"
+                         class="w-full px-4 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary file:mr-4 file:py-1 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20">
+                  {% if profile.cover_image %}
+                    <p class="text-xs text-muted-foreground mt-1">{% trans "Current:" %} {{ profile.cover_image.name|truncatechars:30 }}</p>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+
+            <!-- Submit Button -->
+            <div class="flex justify-end">
+              <button type="submit"
+                      class="flex justify-center items-center px-6 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-colors">
+                <i class="fa fa-save mr-2"></i>
+                {% trans "Save Changes" %}
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <!-- Change Password Tab -->
+      <div x-show="activeTab === 'password'" x-cloak>
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="change_password" value="1">
+
+          <div class="space-y-6 max-w-2xl">
+            <div>
+              <h3 class="text-lg font-semibold text-foreground mb-4">{% trans "Change Your Password" %}</h3>
+              <p class="text-sm text-muted-foreground mb-6">{% trans "Enter your current password and choose a new password." %}</p>
+            </div>
+
+            <div>
+              <label for="id_old_password" class="block text-sm font-medium text-foreground mb-2">{% trans "Current Password" %}</label>
+              <input type="password"
+                     id="id_old_password"
+                     name="old_password"
+                     required
+                     class="w-full px-4 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary">
+            </div>
+
+            <div>
+              <label for="id_new_password1" class="block text-sm font-medium text-foreground mb-2">{% trans "New Password" %}</label>
+              <input type="password"
+                     id="id_new_password1"
+                     name="new_password1"
+                     required
+                     class="w-full px-4 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary">
+              <div class="mt-3 bg-muted/30 border border-muted/50 rounded-lg p-3">
+                <p class="text-xs font-medium text-muted-foreground mb-2">{% trans "Password requirements:" %}</p>
+                <ul class="space-y-1 text-xs text-muted-foreground">
+                  <li class="flex items-start">
+                    <span class="text-primary mr-2 mt-0.5">•</span>
+                    <span>{% trans "Your password can't be too similar to your other personal information." %}</span>
+                  </li>
+                  <li class="flex items-start">
+                    <span class="text-primary mr-2 mt-0.5">•</span>
+                    <span>{% trans "Your password must contain at least 8 characters." %}</span>
+                  </li>
+                  <li class="flex items-start">
+                    <span class="text-primary mr-2 mt-0.5">•</span>
+                    <span>{% trans "Your password can't be a commonly used password." %}</span>
+                  </li>
+                  <li class="flex items-start">
+                    <span class="text-primary mr-2 mt-0.5">•</span>
+                    <span>{% trans "Your password can't be entirely numeric." %}</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            <div>
+              <label for="id_new_password2" class="block text-sm font-medium text-foreground mb-2">{% trans "Confirm New Password" %}</label>
+              <input type="password"
+                     id="id_new_password2"
+                     name="new_password2"
+                     required
+                     class="w-full px-4 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary">
+            </div>
+
+            <!-- Submit Button -->
+            <div class="flex justify-end">
+              <button type="submit"
+                      class="flex justify-center items-center px-6 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-colors">
+                <i class="fa fa-lock mr-2"></i>
+                {% trans "Change Password" %}
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

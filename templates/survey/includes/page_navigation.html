@@ -1,0 +1,82 @@
+<!-- Page Navigation -->
+{% load i18n %}
+<div class="bg-card rounded-lg border border-border mb-6">
+  <div class="p-4">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div class="flex items-center gap-4">
+        <h2 class="text-lg font-semibold text-card-foreground">{% trans "Project Pages" %}</h2>
+        <!-- Page Dropdown -->
+        <div class="relative" x-data="{ pageDropdownOpen: false }">
+          <button @click="pageDropdownOpen = !pageDropdownOpen"
+                  class="inline-flex items-center gap-2 px-3 py-1.5 bg-muted hover:bg-muted/80 rounded-lg text-sm font-medium transition-colors border border-border min-w-[200px] justify-between">
+            <span class="flex items-center gap-2">
+              <i class="fa fa-file-alt text-xs text-muted-foreground"></i>
+              <span x-text="pages.find(p => p.id === selectedPageId)?.title || (currentPage ? currentPage.title : '{% trans 'Select Page' %}') || '{% trans 'Page' %} ' + (pages.findIndex(p => p.id === selectedPageId) + 1)"></span>
+              <span class="px-1.5 py-0.5 bg-primary/10 text-primary text-xs rounded-full"
+                    x-text="pages.find(p => p.id === selectedPageId)?.questions?.length || 0"></span>
+            </span>
+            <i class="fa fa-chevron-down text-xs text-muted-foreground transition-transform duration-200"
+               :class="pageDropdownOpen ? 'rotate-180' : ''"></i>
+          </button>
+          <!-- Dropdown list -->
+          <div x-show="pageDropdownOpen"
+               x-cloak
+               @click.outside="pageDropdownOpen = false"
+               x-transition:enter="transition ease-out duration-150"
+               x-transition:enter-start="opacity-0 -translate-y-1"
+               x-transition:enter-end="opacity-100 translate-y-0"
+               x-transition:leave="transition ease-in duration-100"
+               x-transition:leave-start="opacity-100 translate-y-0"
+               x-transition:leave-end="opacity-0 -translate-y-1"
+               class="absolute left-0 mt-1 w-72 bg-background border border-border rounded-lg shadow-lg py-1 z-50 max-h-64 overflow-y-auto">
+            <template x-for="(pageItem, index) in pages" :key="pageItem.id">
+              <button @click="selectedPageId = pageItem.id; pageDropdownOpen = false"
+                      class="w-full flex items-center justify-between px-4 py-2.5 text-sm transition-colors"
+                      :class="selectedPageId === pageItem.id ? 'bg-primary/10 text-primary font-medium' : 'text-foreground hover:bg-muted'">
+                <span class="flex items-center gap-2">
+                  <i class="fa fa-file-alt text-xs" :class="selectedPageId === pageItem.id ? 'text-primary' : 'text-muted-foreground'"></i>
+                  <span x-text="pageItem.title || `{% trans 'Page' %} ${index + 1}`"></span>
+                </span>
+                <span class="px-1.5 py-0.5 text-xs rounded-full"
+                      :class="selectedPageId === pageItem.id ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'"
+                      x-text="pageItem.questions?.length || 0"></span>
+              </button>
+            </template>
+            <!-- Empty state -->
+            <template x-if="pages.length === 0">
+              <div class="px-4 py-3 text-sm text-muted-foreground">{% trans "No pages yet - add your first page to get started" %}</div>
+            </template>
+          </div>
+        </div>
+        
+        <!-- Load Page Button -->
+        <button @click="switchPage()"
+                :disabled="currentPageId === selectedPageId || !selectedPageId || isSwitchingPage"
+                class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors border border-border"
+                :class="(currentPageId === selectedPageId || !selectedPageId) ? 'bg-muted text-muted-foreground' : 'bg-primary text-primary-foreground hover:bg-primary/90'">
+          <i class="fa fa-sync-alt text-xs" :class="{'fa-spin': isSwitchingPage}"></i>
+          <span x-text="isSwitchingPage ? '{% trans 'Loading...' %}' : '{% trans 'Load Page' %}'"></span>
+        </button>
+      </div>
+      <div class="flex items-center gap-3">
+        <!-- Language Selector -->
+        <!-- Don't inline `>=` here: django-htmlmin encodes `>` to `&gt;` inside
+             attribute values, breaking Alpine's expression parser in prod. -->
+        <div x-show="hasMultipleLanguages()" class="flex items-center gap-2">
+          <span class="text-sm font-medium text-muted-foreground">{% trans "Select Language:" %}</span>
+          <select x-model="selectedDisplayLanguage"
+                  class="px-3 py-1.5 bg-muted hover:bg-muted/80 rounded-lg text-sm font-medium border border-border text-card-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-colors">
+            <template x-for="lang in availableLanguages" :key="lang.code">
+              <option :value="lang.code" x-text="lang.name"></option>
+            </template>
+          </select>
+        </div>
+        <button @click="addNewPage()"
+                class="inline-flex items-center gap-2 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
+          <i class="fa fa-plus text-xs"></i>
+          {% trans "Add Page" %}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

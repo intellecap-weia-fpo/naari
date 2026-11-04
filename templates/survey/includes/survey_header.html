@@ -1,0 +1,164 @@
+<!-- Survey Header -->
+{% load i18n %}
+<div x-data="{ showMoreOptions: false }" class="bg-primary rounded-lg px-6 py-4 text-white mb-6">
+  <!-- Back link -->
+  <a href="{% url 'survey:survey_list' %}"
+     class="inline-flex items-center gap-1.5 text-sm opacity-75 hover:opacity-100 transition-opacity mb-3">
+    <i class="fa fa-arrow-left text-xs"></i>
+    {% trans "Back to Projects" %}
+  </a>
+  <!-- Top row: Title + meta on left, actions on right -->
+  <div class="flex items-center justify-between gap-4">
+    <!-- Left: Title & details -->
+    <div class="flex items-center gap-4 min-w-0">
+      <h1 class="text-xl font-semibold truncate">{{ survey.title }}</h1>
+      <div class="hidden sm:flex items-center gap-4 text-sm opacity-75 flex-shrink-0">
+        <span class="flex items-center gap-1.5">
+          <i class="fa fa-user text-xs"></i>
+          {{ survey.created_by.get_full_name|default:survey.created_by.username }}
+        </span>
+        <span class="flex items-center gap-1.5">
+          <i class="fa fa-calendar text-xs"></i>
+          {{ survey.created_at|date:"M d, Y" }}
+        </span>
+        <span class="flex items-center gap-1.5">
+          <i class="fa fa-file-alt text-xs"></i>
+          <span x-text="totalQuestions + ' {% trans 'questions' %}'"></span>
+        </span>
+      </div>
+    </div>
+    <!-- Right: More toggle -->
+    <div class="flex items-center gap-2 flex-shrink-0">
+      <button @click="showMoreOptions = !showMoreOptions"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-full text-sm font-medium transition-colors">
+        <i class="fa fa-ellipsis-h"></i>
+        {% trans "More" %}
+        <i class="fa fa-chevron-down text-xs transition-transform duration-200" :class="showMoreOptions ? 'rotate-180' : ''"></i>
+      </button>
+    </div>
+  </div>
+  <!-- Expanded options row (slides open inside the blue section) -->
+  <div x-show="showMoreOptions"
+       x-cloak
+       x-collapse
+       class="flex items-center justify-center gap-2 flex-wrap pt-4 mt-4 border-t border-white/20">
+    <a href="{% url 'survey:survey_submissions' survey.pk %}"
+       class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-full text-sm font-medium transition-colors">
+      <i class="fa fa-list text-xs"></i>
+      {% trans "View Submissions" %}
+    </a>
+    <a href="{% url 'survey:survey_preview' survey.pk %}"
+       class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-full text-sm font-medium transition-colors">
+      <i class="fa fa-eye text-xs"></i>
+      {% trans "Preview" %}
+    </a>
+    <a href="{% url 'survey:survey_edit' survey.pk %}"
+       class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-full text-sm font-medium transition-colors">
+      <i class="fa fa-edit text-xs"></i>
+      {% trans "Edit" %}
+    </a>
+    <button @click="editingValidation = null; showTranslationModal = false; showAddQuestion = false; showLanguageModal = true"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-full text-sm font-medium transition-colors">
+      <i class="fa fa-globe text-xs"></i>
+      {% trans "Manage Languages" %}
+      <span x-text="'(' + availableLanguages.length + ')'" class="text-xs"></span>
+    </button>
+    {% if survey.consent_text %}
+    <button @click="editConsentTranslation()"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-full text-sm font-medium transition-colors">
+      <i class="fa fa-file-contract text-xs"></i>
+      {% trans "Translate Consent" %}
+    </button>
+    {% endif %}
+    <a href="{% url 'survey:survey_indicators' survey.pk %}"
+       class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-full text-sm font-medium transition-colors">
+      <i class="fa fa-chart-line text-xs"></i>
+      {% trans "Indicators" %}
+    </a>
+    <a href="{% url 'survey:survey_import_export' survey.pk %}"
+       class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-full text-sm font-medium transition-colors">
+      <i class="fa fa-exchange-alt text-xs"></i>
+      {% trans "Import / Export" %}
+    </a>
+    <button @click="showCloneSurveyModal = true"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-full text-sm font-medium transition-colors">
+      <i class="fa fa-clone text-xs"></i>
+      {% trans "Clone Survey" %}
+    </button>
+  </div>
+</div>
+
+<!-- Clone Survey Modal -->
+<div x-show="showCloneSurveyModal" 
+     x-cloak
+     class="fixed inset-0 z-50 overflow-y-auto" 
+     aria-labelledby="clone-survey-modal" 
+     role="dialog" 
+     aria-modal="true">
+  <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+    <!-- Background overlay -->
+    <div class="fixed inset-0 bg-gray-500/75 transition-opacity z-40"
+         @click="showCloneSurveyModal = false"></div>
+    
+    <!-- Centering spacer for sm+ screens -->
+    <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+    
+    <!-- Modal panel -->
+    <div class="relative z-50 inline-block align-bottom bg-background rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+      <div class="bg-background px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+        <div class="sm:flex sm:items-start">
+          <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-primary/10 sm:mx-0 sm:h-10 sm:w-10">
+            <i class="fa fa-clone text-primary"></i>
+          </div>
+          <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left flex-1">
+            <h3 class="text-lg leading-6 font-medium text-foreground" id="clone-survey-modal">
+              Clone Survey
+            </h3>
+            <div class="mt-2">
+              <p class="text-sm text-muted-foreground mb-4">
+                Create a copy of this survey with all pages, questions, options, and translations.
+              </p>
+              <label for="clone-survey-title" class="block text-sm font-medium text-foreground mb-1">
+                New Survey Title
+              </label>
+              <input type="text" 
+                     id="clone-survey-title"
+                     x-model="cloneSurveyTitle"
+                     @keydown.enter.prevent="cloneSurvey()"
+                     class="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                     placeholder="Enter a title for the cloned survey">
+              <p class="text-xs text-muted-foreground mt-1">
+                Title must be 3-255 characters long.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="bg-muted/30 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse gap-2">
+        <button type="button"
+                @click="cloneSurvey()"
+                :disabled="cloningInProgress"
+                class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-primary text-primary-foreground text-base font-medium hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+          <template x-if="cloningInProgress">
+            <span class="flex items-center gap-2">
+              <i class="fa fa-spinner fa-spin"></i>
+              Cloning...
+            </span>
+          </template>
+          <template x-if="!cloningInProgress">
+            <span class="flex items-center gap-2">
+              <i class="fa fa-clone"></i>
+              Clone Survey
+            </span>
+          </template>
+        </button>
+        <button type="button"
+                @click="showCloneSurveyModal = false"
+                :disabled="cloningInProgress"
+                class="mt-3 w-full inline-flex justify-center rounded-md border border-input shadow-sm px-4 py-2 bg-background text-base font-medium text-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

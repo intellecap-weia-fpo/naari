@@ -1,0 +1,348 @@
+{% extends "base_app.html" %}
+{% load i18n %}
+{% load static %}
+{% block title %}Preview: {{ survey.title }} - {{ site_config.site_name }}{% endblock %}
+
+{% block extra_js %}
+<script type="application/json" id="survey-data">
+{
+  "currentPage": {{ current_page|default:0 }},
+  "currentQuestion": {{ current_question|default:0 }},
+  "totalPages": {{ total_pages }},
+  "totalQuestions": {{ total_questions }},
+  "questions": {{ questions_json|safe }},
+  "displayMode": "{{ display_mode }}"
+}
+</script>
+<script data-turbo-permanent>
+// Avoid redeclaration errors with Turbo
+if (typeof window.surveyPreview === 'undefined') {
+  window.surveyPreview = function() {
+    const surveyData = JSON.parse(document.getElementById('survey-data').textContent);
+    
+    return {
+      currentPage: surveyData.currentPage,
+      currentQuestion: surveyData.currentQuestion,
+      totalPages: surveyData.totalPages,
+      totalQuestions: surveyData.totalQuestions,
+      questions: surveyData.questions,
+      displayMode: surveyData.displayMode,
+      
+      nextQuestion() {
+        if (this.currentQuestion < this.totalQuestions - 1) {
+          this.currentQuestion++;
+        }
+      },
+      
+      previousQuestion() {
+        if (this.currentQuestion > 0) {
+          this.currentQuestion--;
+        }
+      },
+      
+      getCurrentQuestion() {
+        return this.questions[this.currentQuestion] || {};
+      },
+      
+      getProgress() {
+        return Math.round(((this.currentQuestion + 1) / this.totalQuestions) * 100);
+      }
+    };
+  };
+}
+</script>
+<script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer data-turbo-permanent></script>
+{% endblock %}
+
+{% block main_content %}
+  <div class="max-w-6xl mx-auto space-y-6" x-data="{ previewMode: true }">
+    <!-- Header -->
+    <div class="bg-card rounded-lg border border-border p-6" x-data="{ 
+      selectedLanguage: '{{ current_language }}',
+      changeLanguage(lang) {
+        const url = new URL(window.location);
+        url.searchParams.set('lang', lang);
+        {% if display_mode %}url.searchParams.set('mode', '{{ display_mode }}');{% endif %}
+        Turbo.visit(url.toString());
+      }
+    }">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 class="text-2xl font-bold text-card-foreground">{% trans "Survey Preview" %}</h1>
+          <p class="text-muted-foreground">{{ survey.title }}</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <!-- Language Switcher -->
+          {% if available_languages|length > 1 %}
+            <div class="flex items-center gap-2">
+              <label for="language-select" class="text-sm font-medium text-muted-foreground flex items-center gap-1">
+                <i class="fa fa-globe text-xs"></i>
+                Language:
+              </label>
+              <select id="language-select" 
+                      class="form-control min-w-[120px]"
+                      x-model="selectedLanguage"
+                      @change="changeLanguage(selectedLanguage)">
+                {% for lang in available_languages %}
+                  <option value="{{ lang.code }}" {% if lang.is_current %}selected{% endif %}>
+                    {{ lang.name }}
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+          {% endif %}
+          
+          <!-- Display Mode Toggle -->
+          <div class="flex items-center gap-2 bg-muted p-1 rounded-lg">
+            <a href="?mode=page_wise{% if current_language %}&lang={{ current_language }}{% endif %}" 
+               class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors {% if display_mode == 'page_wise' %}bg-primary text-primary-foreground{% else %}text-muted-foreground hover:text-card-foreground hover:bg-background{% endif %}">
+              <i class="fa fa-columns text-xs mr-1"></i>
+              {% trans "Page-wise" %}
+            </a>
+            <a href="?mode=question_per_page{% if current_language %}&lang={{ current_language }}{% endif %}" 
+               class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors {% if display_mode == 'question_per_page' %}bg-primary text-primary-foreground{% else %}text-muted-foreground hover:text-card-foreground hover:bg-background{% endif %}">
+              <i class="fa fa-list text-xs mr-1"></i>
+              {% trans "One by One" %}
+            </a>
+          </div>
+          
+          <a href="{% url 'survey:survey_detail' survey.pk %}"
+             class="inline-flex items-center gap-2 px-4 py-2 border border-border rounded-lg text-sm font-medium text-card-foreground bg-background hover:bg-accent transition-colors">
+            <i class="fa fa-arrow-left text-xs"></i>
+            {% trans "Back" %}
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Survey Content -->
+    {% if display_mode == 'question_per_page' %}
+      <!-- Question Per Page Mode -->
+      <div x-data="window.surveyPreview()" class="space-y-6">
+        
+        <!-- Progress Bar -->
+        <div class="bg-card rounded-lg border border-border p-6">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-medium text-card-foreground">{% trans "Progress" %}</span>
+            <span class="text-sm text-muted-foreground" x-text="`${currentQuestion + 1} of ${totalQuestions} questions`"></span>
+          </div>
+          <div class="w-full bg-muted rounded-full h-2">
+            <div class="bg-primary h-2 rounded-full transition-all duration-300" 
+                 :style="`width: ${getProgress()}%`"></div>
+          </div>
+        </div>
+
+        <!-- Question Display -->
+        <div class="bg-card rounded-lg border border-border p-8 min-h-[400px]">
+          <template x-for="(question, index) in questions" :key="question.id">
+            <div x-show="currentQuestion === index" x-transition:enter="transition ease-out duration-300" 
+                 x-transition:enter-start="opacity-0 transform translate-x-6" 
+                 x-transition:enter-end="opacity-100 transform translate-x-0"
+                 x-transition:leave="transition ease-in duration-200"
+                 x-transition:leave-start="opacity-100 transform translate-x-0"
+                 x-transition:leave-end="opacity-0 transform -translate-x-6">
+              
+              <!-- Question Text -->
+              <div class="space-y-6">
+                <div>
+                  <h2 class="text-xl font-semibold text-card-foreground mb-2" x-text="question.text"></h2>
+                  <span class="text-sm text-muted-foreground" x-text="`${question.type} • ${question.required ? 'Required' : 'Optional'}`"></span>
+                </div>
+
+                <!-- Question Input -->
+                <div class="space-y-3">
+                  <!-- Text/Textarea Questions -->
+                  <template x-if="question.type === 'text' || question.type === 'email' || question.type === 'number'">
+                    <input type="text" class="form-control" :placeholder="{% trans "`Enter your ${question.type ===" %} 'email' ? 'email' : question.type === 'number' ? 'number' : 'answer'}`" readonly>
+                  </template>
+                  
+                  <template x-if="question.type === 'textarea'">
+                    <textarea class="form-control" rows="4" placeholder="{% trans "Enter your detailed response" %}" readonly></textarea>
+                  </template>
+
+                  <!-- Date/Time Questions -->
+                  <template x-if="question.type === 'date'">
+                    <input type="date" class="form-control" readonly>
+                  </template>
+                  
+                  <template x-if="question.type === 'time'">
+                    <input type="time" class="form-control" readonly>
+                  </template>
+                  
+                  <template x-if="question.type === 'datetime'">
+                    <input type="datetime-local" class="form-control" readonly>
+                  </template>
+
+                  <!-- Radio Button Questions -->
+                  <template x-if="question.type === 'radio'">
+                    <div class="space-y-2">
+                      <template x-for="option in question.options" :key="option.id">
+                        <label class="flex items-center gap-3 p-3 border border-border rounded-lg hover:bg-muted/20 cursor-pointer transition-colors">
+                          <input type="radio" :name="`question_${question.id}`" class="form-check-input" disabled>
+                          <span class="text-card-foreground" x-text="option.text"></span>
+                        </label>
+                      </template>
+                    </div>
+                  </template>
+
+                  <!-- Checkbox Questions -->
+                  <template x-if="question.type === 'checkbox'">
+                    <div class="space-y-2">
+                      <template x-for="option in question.options" :key="option.id">
+                        <label class="flex items-center gap-3 p-3 border border-border rounded-lg hover:bg-muted/20 cursor-pointer transition-colors">
+                          <input type="checkbox" class="form-check-input" disabled>
+                          <span class="text-card-foreground" x-text="option.text"></span>
+                        </label>
+                      </template>
+                    </div>
+                  </template>
+
+                  <!-- Dropdown Questions -->
+                  <template x-if="question.type === 'dropdown'">
+                    <select class="form-control" disabled>
+                      <option value="">{% trans "Select an option" %}</option>
+                      <template x-for="option in question.options" :key="option.id">
+                        <option x-text="option.text"></option>
+                      </template>
+                    </select>
+                  </template>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <!-- Navigation -->
+        <div class="flex items-center justify-between">
+          <button @click="previousQuestion()" 
+                  :disabled="currentQuestion === 0"
+                  :class="currentQuestion === 0 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-accent'"
+                  class="inline-flex items-center gap-2 px-6 py-3 border border-border rounded-lg text-sm font-medium text-card-foreground bg-background transition-colors">
+            <i class="fa fa-chevron-left text-xs"></i>
+            {% trans "Previous" %}
+          </button>
+          
+          <div class="text-sm text-muted-foreground" x-text="`Question ${currentQuestion + 1} of ${totalQuestions}`"></div>
+          
+          <button @click="nextQuestion()" 
+                  :disabled="currentQuestion >= totalQuestions - 1"
+                  :class="currentQuestion >= totalQuestions - 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-primary/90'"
+                  class="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg text-sm font-medium transition-colors">
+            {% trans "Next" %}
+            <i class="fa fa-chevron-right text-xs"></i>
+          </button>
+        </div>
+      </div>
+
+    {% else %}
+      <!-- Page-wise Mode -->
+      <div class="space-y-8">
+        {% for page in pages %}
+          <div class="bg-card rounded-lg border border-border p-8">
+            <!-- Page Header -->
+            {% if page.title or page.description %}
+              <div class="mb-8 pb-6 border-b border-border">
+                {% if page.title %}
+                  <h2 class="text-xl font-semibold text-card-foreground mb-2">{{ page.title }}</h2>
+                {% endif %}
+                {% if page.description %}
+                  <p class="text-muted-foreground">{{ page.description }}</p>
+                {% endif %}
+              </div>
+            {% endif %}
+
+            <!-- Questions -->
+            <div class="space-y-8">
+              {% for question in page.questions %}
+                <div class="space-y-4">
+                  <!-- Question Text -->
+                  <div class="flex items-start gap-2">
+                    <span class="text-sm font-medium text-muted-foreground mt-1">{{ forloop.counter }}.</span>
+                    <div class="flex-1">
+                      <h3 class="font-medium text-card-foreground">{{ question.text }}</h3>
+                      {% if question.is_required %}
+                        <span class="text-destructive text-sm">*</span>
+                      {% endif %}
+                    </div>
+                    <span class="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">{{ question.original.get_question_type_display }}</span>
+                  </div>
+
+                  <!-- Question Input -->
+                  <div class="ml-6">
+                    {% if question.question_type == 'text' or question.question_type == 'email' or question.question_type == 'number' %}
+                      <input type="{{ question.question_type }}" class="form-control max-w-lg" 
+                             placeholder="{% if question.question_type == 'email' %}Enter your email{% elif question.question_type == 'number' %}Enter a number{% else %}Enter your answer{% endif %}" readonly>
+                    
+                    {% elif question.question_type == 'textarea' %}
+                      <textarea class="form-control max-w-2xl" rows="4" placeholder="{% trans "Enter your detailed response" %}" readonly></textarea>
+                    
+                    {% elif question.question_type == 'date' %}
+                      <input type="date" class="form-control max-w-sm" readonly>
+                    
+                    {% elif question.question_type == 'time' %}
+                      <input type="time" class="form-control max-w-sm" readonly>
+                    
+                    {% elif question.question_type == 'datetime' %}
+                      <input type="datetime-local" class="form-control max-w-md" readonly>
+                    
+                    {% elif question.question_type == 'radio' %}
+                      <div class="space-y-2 max-w-md">
+                        {% for option in question.options %}
+                          <label class="flex items-center gap-3 p-3 border border-border rounded-lg hover:bg-muted/20 cursor-pointer transition-colors">
+                            <input type="radio" name="question_{{ question.id }}" class="form-check-input" disabled>
+                            <span class="text-card-foreground">{{ option.text }}</span>
+                          </label>
+                        {% endfor %}
+                      </div>
+                    
+                    {% elif question.question_type == 'checkbox' %}
+                      <div class="space-y-2 max-w-md">
+                        {% for option in question.options %}
+                          <label class="flex items-center gap-3 p-3 border border-border rounded-lg hover:bg-muted/20 cursor-pointer transition-colors">
+                            <input type="checkbox" class="form-check-input" disabled>
+                            <span class="text-card-foreground">{{ option.text }}</span>
+                          </label>
+                        {% endfor %}
+                      </div>
+                    
+                    {% elif question.question_type == 'dropdown' %}
+                      <select class="form-control max-w-md" disabled>
+                        <option value="">{% trans "Select an option" %}</option>
+                        {% for option in question.options %}
+                          <option value="{{ option.id }}">{{ option.text }}</option>
+                        {% endfor %}
+                      </select>
+                    {% endif %}
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        {% empty %}
+          <div class="bg-card rounded-lg border border-border p-12 text-center">
+            <div class="max-w-md mx-auto space-y-4">
+              <div class="w-16 h-16 mx-auto bg-muted rounded-full flex items-center justify-center">
+                <i class="fa fa-file-alt text-2xl text-muted-foreground"></i>
+              </div>
+              <div>
+                <h3 class="text-lg font-semibold text-card-foreground mb-2">{% trans "No Pages Found" %}</h3>
+                <p class="text-muted-foreground">{% trans "This survey doesn't have any pages or questions yet. Add some content to preview the survey." %}</p>
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <!-- Preview Notice -->
+    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+      <div class="flex gap-3">
+        <i class="fa fa-info-circle text-blue-600 text-sm mt-0.5"></i>
+        <div class="text-sm">
+          <p class="text-blue-900 font-medium">{% trans "Preview Mode" %}</p>
+          <p class="text-blue-800">{% trans "This is a preview of how your survey will appear to respondents. All form inputs are disabled in preview mode." %}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}

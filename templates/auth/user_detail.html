@@ -1,0 +1,237 @@
+{% extends "base_app.html" %}
+{% load i18n %}
+
+{% block main_content %}
+<div class="space-y-6">
+  <!-- User Profile Card -->
+  <div class="bg-card rounded-xl shadow-sm border border-border/50 overflow-hidden">
+    <!-- Cover/Header -->
+    <div class="bg-gradient-to-r from-primary/10 to-primary/5 px-6 py-8">
+      <div class="flex items-center space-x-6">
+        <div class="w-20 h-20 bg-gradient-to-br from-primary/20 to-primary/5 rounded-full flex items-center justify-center border-4 border-card shadow-lg">
+          {% if profile.profile_image %}
+            <img src="{{ profile.profile_image.url }}" alt="{{ viewed_user.get_full_name|default:viewed_user.username }}" class="w-full h-full rounded-full object-cover">
+          {% else %}
+            <i class="fa fa-user text-3xl text-primary"></i>
+          {% endif %}
+        </div>
+        <div class="flex-1">
+          <h1 class="text-3xl font-bold text-foreground">{{ viewed_user.get_full_name|default:viewed_user.username }}</h1>
+          <p class="text-lg text-muted-foreground">@{{ viewed_user.username }}</p>
+          {% if user_role %}
+            <div class="mt-2">
+              <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium 
+                           {% if user_role == 'admin' %}bg-red-100 text-red-800
+                           {% elif user_role == 'cohortmanager' %}bg-blue-100 text-blue-800
+                           {% elif user_role == 'startupadmin' %}bg-green-100 text-green-800
+                           {% elif user_role == 'startupuser' %}bg-gray-100 text-gray-800
+                           {% else %}bg-gray-100 text-gray-800 {% endif %}">
+                <i class="fa fa-user-tag mr-1"></i>
+                {% if user_role == 'admin' %}Admin
+                {% elif user_role == 'cohortmanager' %}Cohort Manager
+                {% elif user_role == 'startupadmin' %}Startup Admin
+                {% elif user_role == 'startupuser' %}Startup User
+                {% else %}{{ user_role|title }}{% endif %}
+              </span>
+            </div>
+          {% endif %}
+        </div>
+        <div class="flex items-center space-x-2">
+          {% if viewed_user.is_active %}
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+              <i class="fa fa-check-circle mr-1"></i>
+              {% trans "Active" %}
+            </span>
+          {% else %}
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
+              <i class="fa fa-times-circle mr-1"></i>
+              {% trans "Inactive" %}
+            </span>
+          {% endif %}
+          {% if viewed_user.is_staff %}
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800">
+              <i class="fa fa-shield-alt mr-1"></i>
+              {% trans "Staff" %}
+            </span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- User Details -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- Basic Information -->
+    <div class="bg-card rounded-xl shadow-sm border border-border/50 p-6">
+      <h2 class="text-lg font-semibold text-foreground mb-4 flex items-center">
+        <i class="fa fa-user mr-2 text-primary"></i>
+        {% trans "Basic Information" %}
+      </h2>
+      <dl class="space-y-4">
+        <div>
+          <dt class="text-sm font-medium text-muted-foreground">{% trans "Username" %}</dt>
+          <dd class="text-sm text-foreground">{{ viewed_user.username }}</dd>
+        </div>
+        <div>
+          <dt class="text-sm font-medium text-muted-foreground">{% trans "Full Name" %}</dt>
+          <dd class="text-sm text-foreground">{{ viewed_user.get_full_name|default:"—" }}</dd>
+        </div>
+        <div>
+          <dt class="text-sm font-medium text-muted-foreground">{% trans "Email" %}</dt>
+          <dd class="text-sm text-foreground">
+            {% if viewed_user.email %}
+              <a href="mailto:{{ viewed_user.email }}" class="text-primary hover:text-primary/80">{{ viewed_user.email }}</a>
+            {% else %}
+              —
+            {% endif %}
+          </dd>
+        </div>
+        <div>
+          <dt class="text-sm font-medium text-muted-foreground">{% trans "Date Joined" %}</dt>
+          <dd class="text-sm text-foreground">{{ viewed_user.date_joined|date:"F d, Y g:i A" }}</dd>
+        </div>
+        <div>
+          <dt class="text-sm font-medium text-muted-foreground">{% trans "Last Login" %}</dt>
+          <dd class="text-sm text-foreground">
+            {% if viewed_user.last_login %}
+              {{ viewed_user.last_login|date:"F d, Y g:i A" }}
+            {% else %}
+              {% trans "Never" %}
+            {% endif %}
+          </dd>
+        </div>
+      </dl>
+    </div>
+
+    <!-- Profile Information -->
+    <div class="bg-card rounded-xl shadow-sm border border-border/50 p-6">
+      <h2 class="text-lg font-semibold text-foreground mb-4 flex items-center">
+        <i class="fa fa-address-card mr-2 text-primary"></i>
+        {% trans "Profile Information" %}
+      </h2>
+      <dl class="space-y-4">
+        {% if profile.bio %}
+          <div>
+            <dt class="text-sm font-medium text-muted-foreground">{% trans "Bio" %}</dt>
+            <dd class="text-sm text-foreground">{{ profile.bio }}</dd>
+          </div>
+        {% endif %}
+        {% if profile.phone %}
+          <div>
+            <dt class="text-sm font-medium text-muted-foreground">{% trans "Phone" %}</dt>
+            <dd class="text-sm text-foreground">
+              <a href="tel:{{ profile.phone }}" class="text-primary hover:text-primary/80">{{ profile.phone }}</a>
+            </dd>
+          </div>
+        {% endif %}
+        {% if profile.location %}
+          <div>
+            <dt class="text-sm font-medium text-muted-foreground">{% trans "Location" %}</dt>
+            <dd class="text-sm text-foreground">{{ profile.location }}</dd>
+          </div>
+        {% endif %}
+        {% if profile.website %}
+          <div>
+            <dt class="text-sm font-medium text-muted-foreground">{% trans "Website" %}</dt>
+            <dd class="text-sm text-foreground">
+              <a href="{{ profile.website }}" target="_blank" rel="noopener noreferrer" class="text-primary hover:text-primary/80">
+                {{ profile.website }}
+                <i class="fa fa-external-link-alt ml-1 text-xs"></i>
+              </a>
+            </dd>
+          </div>
+        {% endif %}
+        <div>
+          <dt class="text-sm font-medium text-muted-foreground">{% trans "Preferred Language" %}</dt>
+          <dd class="text-sm text-foreground">
+            {% if profile.preferred_language == 'en' %}English
+            {% elif profile.preferred_language == 'es' %}Spanish
+            {% elif profile.preferred_language == 'fr' %}French
+            {% else %}{{ profile.preferred_language|title }}{% endif %}
+          </dd>
+        </div>
+        <div>
+          <dt class="text-sm font-medium text-muted-foreground">{% trans "Email Verified" %}</dt>
+          <dd class="text-sm text-foreground">
+            {% if profile.email_verified %}
+              <span class="inline-flex items-center text-green-600">
+                <i class="fa fa-check-circle mr-1"></i>
+                {% trans "Verified" %}
+              </span>
+            {% else %}
+              <span class="inline-flex items-center text-red-600">
+                <i class="fa fa-times-circle mr-1"></i>
+                {% trans "Not Verified" %}
+              </span>
+            {% endif %}
+          </dd>
+        </div>
+      </dl>
+    </div>
+  </div>
+
+  <!-- Groups and Permissions -->
+  <div class="bg-card rounded-xl shadow-sm border border-border/50 p-6">
+    <h2 class="text-lg font-semibold text-foreground mb-4 flex items-center">
+      <i class="fa fa-users-cog mr-2 text-primary"></i>
+      {% trans "Groups and Permissions" %}
+    </h2>
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <!-- Groups -->
+      <div>
+        <h3 class="text-sm font-medium text-muted-foreground mb-3">{% trans "Groups" %}</h3>
+        {% if groups %}
+          <div class="space-y-2">
+            {% for group in groups %}
+              <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-primary/10 text-primary">
+                <i class="fa fa-users mr-1"></i>
+                {{ group.name|title }}
+              </span>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="text-sm text-muted-foreground">{% trans "Not assigned to any groups" %}</p>
+        {% endif %}
+      </div>
+
+      <!-- Account Status -->
+      <div>
+        <h3 class="text-sm font-medium text-muted-foreground mb-3">{% trans "Account Status" %}</h3>
+        <div class="space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-foreground">{% trans "Active" %}</span>
+            <span class="text-sm {% if viewed_user.is_active %}text-green-600{% else %}text-red-600{% endif %}">
+              {% if viewed_user.is_active %}
+                <i class="fa fa-check-circle mr-1"></i>Yes
+              {% else %}
+                <i class="fa fa-times-circle mr-1"></i>No
+              {% endif %}
+            </span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-foreground">{% trans "Staff Status" %}</span>
+            <span class="text-sm {% if viewed_user.is_staff %}text-green-600{% else %}text-muted-foreground{% endif %}">
+              {% if viewed_user.is_staff %}
+                <i class="fa fa-check-circle mr-1"></i>Yes
+              {% else %}
+                <i class="fa fa-times-circle mr-1"></i>No
+              {% endif %}
+            </span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-foreground">{% trans "Superuser" %}</span>
+            <span class="text-sm {% if viewed_user.is_superuser %}text-green-600{% else %}text-muted-foreground{% endif %}">
+              {% if viewed_user.is_superuser %}
+                <i class="fa fa-check-circle mr-1"></i>Yes
+              {% else %}
+                <i class="fa fa-times-circle mr-1"></i>No
+              {% endif %}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

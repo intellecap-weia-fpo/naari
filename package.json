@@ -1,0 +1,19 @@
+{
+  "name": "naari-admin",
+  "license": "AGPL-3.0-only",
+  "private": true,
+  "packageManager": "yarn@4.9.2",
+  "dependencies": {
+    "@tailwindcss/cli": "^4.1.11",
+    "tailwindcss": "^4.1.11"
+  },
+  "scripts": {
+    "tailwindcss": "npx @tailwindcss/cli -i ./style/input.css -o ./static/css/output.css --watch",
+    "build": "npx @tailwindcss/cli -i ./style/input.css -o ./static/css/output.css",
+    "dev": "npx @tailwindcss/cli -i ./style/input.css -o ./static/css/output.css --watch",
+    "format": "uv run black . && uv run djlint --reformat templates/",
+    "format:python": "uv run black .",
+    "format:templates": "uv run djlint --reformat templates/",
+    "format:check": "uv run black --check . && uv run djlint --check templates/"
+  }
+}

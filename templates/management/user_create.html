@@ -1,0 +1,206 @@
+{% extends "base_app.html" %}
+{% load static %}
+{% load i18n %}
+{% block title %}{% trans "Create User" %} - {{ site_config.site_name }}{% endblock %}
+{% block main_content %}
+  <div class="max-w-2xl mx-auto space-y-6">
+    <!-- Form Card -->
+    <div class="bg-card rounded-lg border border-border overflow-hidden">
+      <div class="px-6 py-4 border-b border-border">
+        <h3 class="text-lg font-medium text-card-foreground">{% trans "User Information" %}</h3>
+      </div>
+      <form method="post"
+            class="p-6 space-y-6"
+            data-turbo="false"
+            x-data="{ submitting: false }"
+            @submit="submitting = true">
+        {% csrf_token %}
+        {% if form.non_field_errors %}
+          <div class="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
+            <div class="flex">
+              <i class="fa fa-exclamation-triangle text-xl text-destructive mt-0.5 mr-3"></i>
+              <div class="space-y-1">
+                {% for error in form.non_field_errors %}<p class="text-sm text-destructive">{{ error }}</p>{% endfor %}
+              </div>
+            </div>
+          </div>
+        {% endif %}
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- Username -->
+          <div class="md:col-span-2">
+            <label for="{{ form.username.id_for_label }}"
+                   class="block text-sm font-medium text-card-foreground mb-2">{% trans "Username" %} *</label>
+            {{ form.username }}
+            {% if form.username.errors %}
+              <div class="mt-1 text-sm text-destructive">
+                {% for error in form.username.errors %}<p>{{ error }}</p>{% endfor %}
+              </div>
+            {% endif %}
+            <p class="mt-1 text-sm text-muted-foreground">
+              {% trans "Required. 150 characters or fewer. Letters, digits and @/./+/-/_ only." %}
+            </p>
+          </div>
+          <!-- Email -->
+          <div class="md:col-span-2">
+            <label for="{{ form.email.id_for_label }}"
+                   class="block text-sm font-medium text-card-foreground mb-2">{% trans "Email Address" %} *</label>
+            {{ form.email }}
+            {% if form.email.errors %}
+              <div class="mt-1 text-sm text-destructive">
+                {% for error in form.email.errors %}<p>{{ error }}</p>{% endfor %}
+              </div>
+            {% endif %}
+          </div>
+          <!-- First Name -->
+          <div>
+            <label for="{{ form.first_name.id_for_label }}"
+                   class="block text-sm font-medium text-card-foreground mb-2">{% trans "First Name" %}</label>
+            {{ form.first_name }}
+            {% if form.first_name.errors %}
+              <div class="mt-1 text-sm text-destructive">
+                {% for error in form.first_name.errors %}<p>{{ error }}</p>{% endfor %}
+              </div>
+            {% endif %}
+          </div>
+          <!-- Last Name -->
+          <div>
+            <label for="{{ form.last_name.id_for_label }}"
+                   class="block text-sm font-medium text-card-foreground mb-2">{% trans "Last Name" %}</label>
+            {{ form.last_name }}
+            {% if form.last_name.errors %}
+              <div class="mt-1 text-sm text-destructive">
+                {% for error in form.last_name.errors %}<p>{{ error }}</p>{% endfor %}
+              </div>
+            {% endif %}
+          </div>
+          <!-- Password -->
+          <div>
+            <label for="{{ form.password1.id_for_label }}"
+                   class="block text-sm font-medium text-card-foreground mb-2">{% trans "Password" %} *</label>
+            {{ form.password1 }}
+            {% if form.password1.errors %}
+              <div class="mt-1 text-sm text-destructive">
+                {% for error in form.password1.errors %}<p>{{ error }}</p>{% endfor %}
+              </div>
+            {% endif %}
+            {% if form.password1.help_text %}
+              <div class="mt-1 text-sm text-muted-foreground">{{ form.password1.help_text|safe }}</div>
+            {% endif %}
+          </div>
+          <!-- Password Confirmation -->
+          <div>
+            <label for="{{ form.password2.id_for_label }}"
+                   class="block text-sm font-medium text-card-foreground mb-2">{% trans "Password Confirmation" %} *</label>
+            {{ form.password2 }}
+            {% if form.password2.errors %}
+              <div class="mt-1 text-sm text-destructive">
+                {% for error in form.password2.errors %}<p>{{ error }}</p>{% endfor %}
+              </div>
+            {% endif %}
+            <p class="mt-1 text-sm text-muted-foreground">{% trans "Enter the same password as before, for verification." %}</p>
+          </div>
+          <!-- Role Selection -->
+          <div class="md:col-span-2">
+            <label class="block text-sm font-medium text-card-foreground mb-4">{{ form.role.label }} *</label>
+            <div class="space-y-3">
+              {% for choice in form.role %}
+                <div class="flex items-center">
+                  <div class="flex items-center h-5">
+                    {{ choice.tag }}
+                  </div>
+                  <div class="ml-3">
+                    <label for="{{ choice.id_for_label }}" class="text-sm font-medium text-card-foreground cursor-pointer">
+                      {{ choice.choice_label }}
+                    </label>
+                    <div class="text-xs text-muted-foreground mt-0.5">
+                      {% if choice.choice_value == 'admin' %}
+                        Full system access with administrative privileges
+                      {% elif choice.choice_value == 'cohortmanager' %}
+                        Manage cohorts, courses, and monitor startups
+                      {% elif choice.choice_value == 'startupadmin' %}
+                        Manage startup profile and team members
+                      {% elif choice.choice_value == 'startupuser' %}
+                        View startup information and participate in activities
+                      {% elif choice.choice_value == 'mentor' %}
+                        Provide guidance and mentorship to startups
+                      {% endif %}
+                    </div>
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+            {% if form.role.errors %}
+              <div class="mt-2 text-sm text-destructive">
+                {% for error in form.role.errors %}<p>{{ error }}</p>{% endfor %}
+              </div>
+            {% endif %}
+          </div>
+          
+          <!-- Survey Access -->
+          <div class="md:col-span-2">
+            <label class="block text-sm font-medium text-card-foreground mb-4">{{ form.survey_access.label }}</label>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {% for choice in form.survey_access %}
+                <div class="flex items-start bg-card border border-border rounded-md p-3 hover:border-primary/50 transition-colors">
+                  <div class="flex items-center h-5 mt-0.5">
+                    {{ choice.tag }}
+                  </div>
+                  <div class="ml-3 text-sm">
+                    <label for="{{ choice.id_for_label }}" class="font-medium text-card-foreground cursor-pointer block">
+                      {{ choice.choice_label }}
+                    </label>
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+            {% if form.survey_access.help_text %}
+              <p class="mt-2 text-sm text-muted-foreground">{{ form.survey_access.help_text }}</p>
+            {% endif %}
+            {% if form.survey_access.errors %}
+              <div class="mt-2 text-sm text-destructive">
+                {% for error in form.survey_access.errors %}<p>{{ error }}</p>{% endfor %}
+              </div>
+            {% endif %}
+
+            <!-- Restrict to assigned projects only -->
+            <div class="mt-4 bg-card border border-border rounded-md p-3">
+              <div class="flex items-start">
+                <div class="flex items-center h-5 mt-0.5">
+                  {{ form.survey_access_restricted }}
+                </div>
+                <div class="ml-3 text-sm">
+                  <label for="{{ form.survey_access_restricted.id_for_label }}" class="font-medium text-card-foreground cursor-pointer block">
+                    {{ form.survey_access_restricted.label }}
+                  </label>
+                  <p class="mt-1 text-muted-foreground">{{ form.survey_access_restricted.help_text }}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- Form Actions -->
+        <div class="flex flex-col sm:flex-row sm:justify-end sm:space-x-3 space-y-3 sm:space-y-0 pt-6 border-t border-border">
+          <a href="{% url 'management:user_list' %}"
+             class="w-full sm:w-auto inline-flex justify-center items-center px-4 py-2 border border-border rounded-md shadow-sm text-sm font-medium text-card-foreground bg-card hover:bg-accent focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring">
+            {% trans "Cancel" %}
+          </a>
+          <button type="submit"
+                  :disabled="submitting"
+                  class="w-full sm:w-auto inline-flex justify-center items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/80 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200">
+            <div class="flex items-center">
+              <div x-show="!submitting" class="flex items-center">
+                <i class="fa fa-plus text-base mr-2"></i>
+                <span>{% trans "Create User" %}</span>
+              </div>
+              <div x-show="submitting" class="flex items-center">
+                <div class="w-4 h-4 mr-2 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin">
+                </div>
+                <span>{% trans "Creating..." %}</span>
+              </div>
+            </div>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+{% endblock %}

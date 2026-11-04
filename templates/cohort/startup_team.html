@@ -1,0 +1,467 @@
+{% extends "base_app.html" %}
+{% load i18n %}
+{% load static %}
+{% block title %}{{ page_title }} - {{ site_config.site_name }}{% endblock %}
+{% block main_content %}
+  <div class="space-y-6">
+    <!-- Team Overview Stats -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+      <div class="bg-card rounded-lg border border-border p-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="text-2xl font-bold text-card-foreground">{{ startup.total_members }}</div>
+            <div class="text-sm font-medium text-muted-foreground">{% trans "Total Members" %}</div>
+          </div>
+          <div class="w-12 h-12 bg-primary rounded-lg flex items-center justify-center">
+            <i class="fa fa-users text-primary-foreground text-lg"></i>
+          </div>
+        </div>
+      </div>
+      <div class="bg-card rounded-lg border border-border p-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="text-2xl font-bold text-card-foreground">{{ startup.get_admin_count_excluding_founder|add:1 }}</div>
+            <div class="text-sm font-medium text-muted-foreground">Administrators</div>
+          </div>
+          <div class="w-12 h-12 bg-accent rounded-lg flex items-center justify-center">
+            <i class="fa fa-user-shield text-accent-foreground text-lg"></i>
+          </div>
+        </div>
+      </div>
+      <div class="bg-card rounded-lg border border-border p-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="text-2xl font-bold text-card-foreground">{{ startup.members.count }}</div>
+            <div class="text-sm font-medium text-muted-foreground">{% trans "Regular Members" %}</div>
+          </div>
+          <div class="w-12 h-12 bg-secondary rounded-lg flex items-center justify-center">
+            <i class="fa fa-user text-secondary-foreground text-lg"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pending Invitations Section -->
+    {% if pending_invitations %}
+      <div class="bg-card rounded-xl border border-border shadow-sm">
+        <div class="p-6 border-b border-border">
+          <h2 class="text-lg font-semibold text-card-foreground">{% trans "Pending Invitations" %}</h2>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="min-w-full">
+            <thead>
+              <tr class="border-b border-border">
+                <th class="px-6 py-4 text-left text-sm font-semibold text-card-foreground">{% trans "Email" %}</th>
+                <th class="px-6 py-4 text-left text-sm font-semibold text-card-foreground">{% trans "Role" %}</th>
+                <th class="px-6 py-4 text-left text-sm font-semibold text-card-foreground">{% trans "Invited By" %}</th>
+                <th class="px-6 py-4 text-left text-sm font-semibold text-card-foreground">{% trans "Sent" %}</th>
+                <th class="px-6 py-4 text-left text-sm font-semibold text-card-foreground">{% trans "Expires" %}</th>
+                <th class="px-6 py-4 text-right text-sm font-semibold text-card-foreground">{% trans "Actions" %}</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-border">
+              {% for invitation in pending_invitations %}
+                <tr class="hover:bg-muted/5 transition-colors">
+                  <td class="px-6 py-4">
+                    <div class="flex items-center gap-3">
+                      <div class="w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
+                        <i class="fa fa-envelope text-xs text-muted-foreground"></i>
+                      </div>
+                      <div>
+                        <p class="text-sm font-medium text-card-foreground">{{ invitation.email }}</p>
+                        {% if invitation.invited_user %}
+                          <p class="text-xs text-muted-foreground">{% trans "Existing user" %}</p>
+                        {% else %}
+                          <p class="text-xs text-muted-foreground">{% trans "New user" %}</p>
+                        {% endif %}
+                      </div>
+                    </div>
+                  </td>
+                  <td class="px-6 py-4">
+                    <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/50 border border-border">
+                      {% if invitation.role == 'admin' %}
+                        <i class="fa fa-user-shield text-xs text-muted-foreground"></i>
+                      {% else %}
+                        <i class="fa fa-user text-xs text-muted-foreground"></i>
+                      {% endif %}
+                      <span class="text-sm font-medium text-card-foreground">{{ invitation.get_role_display }}</span>
+                    </div>
+                  </td>
+                  <td class="px-6 py-4">
+                    <p class="text-sm text-card-foreground">{{ invitation.invited_by.get_full_name|default:invitation.invited_by.username }}</p>
+                  </td>
+                  <td class="px-6 py-4">
+                    <p class="text-sm text-muted-foreground">{{ invitation.invited_at|date:"M d, Y" }}</p>
+                  </td>
+                  <td class="px-6 py-4">
+                    <p class="text-sm text-muted-foreground">{{ invitation.expires_at|date:"M d, Y" }}</p>
+                  </td>
+                  <td class="px-6 py-4">
+                    <div class="flex items-center justify-end gap-1">
+                      <a href="{% url 'cohort:cancel_invitation' startup.id invitation.id %}"
+                         class="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+                         title="{% trans "Cancel Invitation" %}"
+                         onclick="return confirm('Are you sure you want to cancel this invitation?')">
+                        <i class="fa fa-times text-sm"></i>
+                      </a>
+                    </div>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    {% endif %}
+
+    <!-- Team Members Table -->
+    <div class="bg-card rounded-xl border border-border shadow-sm">
+      <div class="p-6 border-b border-border">
+        <div class="flex items-center justify-between">
+          <h2 class="text-lg font-semibold text-card-foreground">{% trans "Team Members" %}</h2>
+          <button type="button"
+                  class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-primary-foreground bg-primary rounded-lg hover:bg-primary/90 transition-colors"
+                  onclick="openInviteModal()">
+            <i class="fa fa-envelope text-xs"></i>
+            {% trans "Invite Member" %}
+          </button>
+        </div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full">
+          <thead>
+            <tr class="border-b border-border">
+              <th class="px-6 py-4 text-left text-sm font-semibold text-card-foreground">{% trans "Member" %}</th>
+              <th class="px-6 py-4 text-left text-sm font-semibold text-card-foreground">Role</th>
+              <th class="px-6 py-4 text-left text-sm font-semibold text-card-foreground">{% trans "Joined" %}</th>
+              <th class="px-6 py-4 text-left text-sm font-semibold text-card-foreground">{% trans "Status" %}</th>
+              <th class="px-6 py-4 text-right text-sm font-semibold text-card-foreground">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-border">
+            <!-- Admin -->
+            <tr class="hover:bg-muted/5 transition-colors">
+              <td class="px-6 py-4">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center">
+                    <span class="text-sm font-bold text-primary">
+                      {{ startup.founder.get_full_name|default:startup.founder.username|slice:":1"|upper }}
+                    </span>
+                  </div>
+                  <div>
+                    <p class="text-sm font-medium text-card-foreground">
+                      {{ startup.founder.get_full_name|default:startup.founder.username }}
+                    </p>
+                    <p class="text-xs text-muted-foreground">@{{ startup.founder.username }}</p>
+                  </div>
+                </div>
+              </td>
+              <td class="px-6 py-4">
+                <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/20">
+                  <i class="fa fa-crown text-xs text-primary"></i>
+                  <span class="text-sm font-medium text-primary">{% trans "Admin" %}</span>
+                </div>
+              </td>
+              <td class="px-6 py-4">
+                <p class="text-sm text-muted-foreground">{{ startup.created_at|date:"M d, Y" }}</p>
+              </td>
+              <td class="px-6 py-4">
+                {% if startup.founder.is_active %}
+                  <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-green-500/10 border border-green-500/20">
+                    <div class="w-2 h-2 rounded-full bg-green-500"></div>
+                    <span class="text-sm font-medium text-green-700">{% trans "Active" %}</span>
+                  </div>
+                {% else %}
+                  <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/50 border border-border">
+                    <div class="w-2 h-2 rounded-full bg-muted-foreground/30"></div>
+                    <span class="text-sm font-medium text-muted-foreground">{% trans "Inactive" %}</span>
+                  </div>
+                {% endif %}
+              </td>
+              <td class="px-6 py-4">
+                <div class="flex items-center justify-end">
+                  <span class="text-sm text-muted-foreground">{% trans "Cannot modify admin" %}</span>
+                </div>
+              </td>
+            </tr>
+
+            <!-- Admins -->
+            {% for admin in startup.get_admins_excluding_founder %}
+              <tr class="hover:bg-muted/5 transition-colors">
+                <td class="px-6 py-4">
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
+                      <span class="text-sm font-medium text-accent-foreground">
+                        {{ admin.get_full_name|default:admin.username|slice:":1"|upper }}
+                      </span>
+                    </div>
+                    <div>
+                      <p class="text-sm font-medium text-card-foreground">
+                        {{ admin.get_full_name|default:admin.username }}
+                      </p>
+                      <p class="text-xs text-muted-foreground">@{{ admin.username }}</p>
+                    </div>
+                  </div>
+                </td>
+                <td class="px-6 py-4">
+                  <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-accent/10 border border-accent/20">
+                    <i class="fa fa-user-shield text-xs text-accent-foreground"></i>
+                    <span class="text-sm font-medium text-accent-foreground">{% trans "Admin" %}</span>
+                  </div>
+                </td>
+                <td class="px-6 py-4">
+                  <p class="text-sm text-muted-foreground">-</p>
+                </td>
+                <td class="px-6 py-4">
+                  {% if admin.is_active %}
+                    <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-green-500/10 border border-green-500/20">
+                      <div class="w-2 h-2 rounded-full bg-green-500"></div>
+                      <span class="text-sm font-medium text-green-700">Active</span>
+                    </div>
+                  {% else %}
+                    <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/50 border border-border">
+                      <div class="w-2 h-2 rounded-full bg-muted-foreground/30"></div>
+                      <span class="text-sm font-medium text-muted-foreground">Inactive</span>
+                    </div>
+                  {% endif %}
+                </td>
+                <td class="px-6 py-4">
+                  <div class="flex items-center justify-end gap-1">
+                    <form method="post" style="display: inline;">
+                      {% csrf_token %}
+                      <input type="hidden" name="action" value="demote_to_member">
+                      <input type="hidden" name="user_id" value="{{ admin.id }}">
+                      <button type="submit"
+                              class="p-2 text-muted-foreground hover:text-card-foreground hover:bg-muted rounded-lg transition-colors"
+                              title="{% trans "Change to Member" %}">
+                        <i class="fa fa-user-times text-sm"></i>
+                      </button>
+                    </form>
+                    <form method="post" style="display: inline;">
+                      {% csrf_token %}
+                      <input type="hidden" name="action" value="remove_user">
+                      <input type="hidden" name="user_id" value="{{ admin.id }}">
+                      <button type="submit"
+                              class="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+                              title="{% trans "Remove from Startup" %}"
+                              onclick="return confirm('Are you sure you want to remove this admin?')">
+                        <i class="fa fa-trash text-sm"></i>
+                      </button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+
+            <!-- Regular Members -->
+            {% for member in startup.members.all %}
+              <tr class="hover:bg-muted/5 transition-colors">
+                <td class="px-6 py-4">
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
+                      <span class="text-sm font-medium text-muted-foreground">
+                        {{ member.get_full_name|default:member.username|slice:":1"|upper }}
+                      </span>
+                    </div>
+                    <div>
+                      <p class="text-sm font-medium text-card-foreground">
+                        {{ member.get_full_name|default:member.username }}
+                      </p>
+                      <p class="text-xs text-muted-foreground">@{{ member.username }}</p>
+                    </div>
+                  </div>
+                </td>
+                <td class="px-6 py-4">
+                  <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/50 border border-border">
+                    <i class="fa fa-user text-xs text-muted-foreground"></i>
+                    <span class="text-sm font-medium text-muted-foreground">Member</span>
+                  </div>
+                </td>
+                <td class="px-6 py-4">
+                  <p class="text-sm text-muted-foreground">-</p>
+                </td>
+                <td class="px-6 py-4">
+                  {% if member.is_active %}
+                    <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-green-500/10 border border-green-500/20">
+                      <div class="w-2 h-2 rounded-full bg-green-500"></div>
+                      <span class="text-sm font-medium text-green-700">Active</span>
+                    </div>
+                  {% else %}
+                    <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/50 border border-border">
+                      <div class="w-2 h-2 rounded-full bg-muted-foreground/30"></div>
+                      <span class="text-sm font-medium text-muted-foreground">Inactive</span>
+                    </div>
+                  {% endif %}
+                </td>
+                <td class="px-6 py-4">
+                  <div class="flex items-center justify-end gap-1">
+                    <form method="post" style="display: inline;">
+                      {% csrf_token %}
+                      <input type="hidden" name="action" value="remove_user">
+                      <input type="hidden" name="user_id" value="{{ member.id }}">
+                      <button type="submit"
+                              class="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+                              title="Remove from Startup"
+                              onclick="return confirm('Are you sure you want to remove this member?')">
+                        <i class="fa fa-trash text-sm"></i>
+                      </button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+
+            {% if not startup.get_admins_excluding_founder and not startup.members.exists %}
+              <tr>
+                <td colspan="5" class="px-6 py-12 text-center">
+                  <div class="space-y-3">
+                    <div class="w-16 h-16 mx-auto bg-muted rounded-xl flex items-center justify-center">
+                      <i class="fa fa-users text-2xl text-muted-foreground"></i>
+                    </div>
+                    <p class="text-muted-foreground">{% trans "No team members yet" %}</p>
+                    <p class="text-sm text-muted-foreground">{% trans "Add team members to collaborate on this startup" %}</p>
+                  </div>
+                </td>
+              </tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Invitation Modal -->
+  <div id="inviteModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden">
+    <div class="flex items-center justify-center min-h-screen p-4">
+      <div class="bg-card rounded-xl border border-border shadow-xl max-w-md w-full">
+        <div class="p-6">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-card-foreground">{% trans "Invite Team Member" %}</h3>
+            <button type="button" onclick="closeInviteModal()" class="text-muted-foreground hover:text-card-foreground">
+              <i class="fa fa-times"></i>
+            </button>
+          </div>
+
+          <form id="inviteForm" class="space-y-4">
+            {% csrf_token %}
+            <div>
+              <label for="email" class="block text-sm font-medium text-card-foreground mb-2">
+                {% trans "Email Address" %} <span class="text-destructive">*</span>
+              </label>
+              {{ invitation_form.email }}
+            </div>
+
+            <div>
+              <label for="role" class="block text-sm font-medium text-card-foreground mb-2">
+                Role <span class="text-destructive">*</span>
+              </label>
+              {{ invitation_form.role }}
+            </div>
+
+            <div class="bg-muted/20 rounded-lg p-3">
+              <p class="text-sm text-muted-foreground">
+                <i class="fa fa-info-circle mr-1"></i>
+                {% trans "The user will receive an email invitation. If they don't have an account, they'll be asked to provide their name when accepting." %}
+              </p>
+            </div>
+
+            <div id="inviteError" class="hidden bg-destructive/10 border border-destructive/20 rounded-lg p-3">
+              <p class="text-sm text-destructive"></p>
+            </div>
+
+            <div class="flex gap-3 pt-4">
+              <button type="button" onclick="closeInviteModal()"
+                      class="flex-1 px-4 py-2 border border-border rounded-lg text-sm font-medium text-card-foreground hover:bg-accent transition-colors">
+                {% trans "Cancel" %}
+              </button>
+              <button type="submit"
+                      class="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
+                <span class="loading-text">{% trans "Send Invitation" %}</span>
+                <span class="loading-spinner hidden">
+                  <i class="fa fa-spinner fa-spin mr-2"></i>{% trans "Sending..." %}
+                </span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function openInviteModal() {
+      document.getElementById('inviteModal').classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeInviteModal() {
+      document.getElementById('inviteModal').classList.add('hidden');
+      document.body.style.overflow = 'auto';
+      // Reset form
+      document.getElementById('inviteForm').reset();
+      document.getElementById('inviteError').classList.add('hidden');
+    }
+
+    // Handle form submission
+    document.getElementById('inviteForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+
+      const form = e.target;
+      const formData = new FormData(form);
+      const submitButton = form.querySelector('button[type="submit"]');
+      const loadingText = submitButton.querySelector('.loading-text');
+      const loadingSpinner = submitButton.querySelector('.loading-spinner');
+      const errorDiv = document.getElementById('inviteError');
+
+      // Show loading state
+      loadingText.classList.add('hidden');
+      loadingSpinner.classList.remove('hidden');
+      submitButton.disabled = true;
+      errorDiv.classList.add('hidden');
+
+      try {
+        const response = await fetch('{% url "cohort:send_invitation" startup.id %}', {
+          method: 'POST',
+          body: formData,
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+          }
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          closeInviteModal();
+          // Reload page to show new invitation
+          window.location.reload();
+        } else {
+          // Show error
+          errorDiv.querySelector('p').textContent = data.errors ? data.errors.join(', ') : data.error || 'An error occurred';
+          errorDiv.classList.remove('hidden');
+        }
+      } catch (error) {
+        errorDiv.querySelector('p').textContent = 'Network error. Please try again.';
+        errorDiv.classList.remove('hidden');
+      } finally {
+        // Reset loading state
+        loadingText.classList.remove('hidden');
+        loadingSpinner.classList.add('hidden');
+        submitButton.disabled = false;
+      }
+    });
+
+    // Close modal when clicking outside
+    document.getElementById('inviteModal').addEventListener('click', function(e) {
+      if (e.target === this) {
+        closeInviteModal();
+      }
+    });
+
+    // Close modal with Escape key
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        closeInviteModal();
+      }
+    });
+  </script>
+{% endblock %}

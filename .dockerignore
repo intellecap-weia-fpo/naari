@@ -1,0 +1,8 @@
+.git
+.idea
+.venv
+.yarn
+.env
+db.sqlite3
+media
+staticfiles

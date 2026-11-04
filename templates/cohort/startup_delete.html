@@ -1,0 +1,108 @@
+{% extends "base_app.html" %}
+{% load i18n %}
+{% load static %}
+{% block title %}{{ page_title }} - {{ site_config.site_name }}{% endblock %}
+{% block main_content %}
+  <div class="max-w-2xl mx-auto space-y-6">
+    <!-- Warning Card -->
+    <div class="bg-destructive/10 border border-destructive/20 rounded-xl p-6">
+      <div class="flex items-start gap-4">
+        <div class="w-12 h-12 rounded-lg bg-destructive/20 flex items-center justify-center flex-shrink-0">
+          <i class="fa fa-exclamation-triangle text-destructive text-xl"></i>
+        </div>
+        <div class="space-y-2">
+          <h1 class="text-xl font-bold text-card-foreground">{{ page_title }}</h1>
+          <p class="text-sm text-muted-foreground">{{ page_subtitle }}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Startup Details Card -->
+    <div class="bg-card rounded-xl border border-border shadow-sm">
+      <div class="p-6 space-y-6">
+        <div class="flex items-start gap-4">
+          {% if startup.logo %}
+            <div class="w-16 h-16 rounded-xl overflow-hidden ring-2 ring-border">
+              <img src="{{ startup.logo.url }}" alt="{{ startup.name }}" class="w-full h-full object-cover">
+            </div>
+          {% else %}
+            <div class="w-16 h-16 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center ring-2 ring-border">
+              <span class="text-xl font-bold text-primary">{{ startup.name|slice:":1"|upper }}</span>
+            </div>
+          {% endif %}
+          <div class="flex-1 space-y-2">
+            <h2 class="text-lg font-bold text-card-foreground">{{ startup.name }}</h2>
+            <p class="text-sm text-muted-foreground">{{ startup.description|truncatewords:30 }}</p>
+          </div>
+        </div>
+
+        <!-- Key Information -->
+        <div class="pt-4 border-t border-border">
+          <h3 class="text-sm font-semibold text-card-foreground mb-4">Information to be deleted:</h3>
+          <div class="space-y-3">
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
+                <i class="fa fa-industry text-xs text-muted-foreground"></i>
+              </div>
+              <div>
+                <p class="text-xs text-muted-foreground">{% trans "Industry & Stage" %}</p>
+                <p class="text-sm font-medium text-card-foreground">
+                  {{ startup.get_industry_display }}{% if startup.stage %} - {{ startup.get_stage_display }}{% endif %}
+                </p>
+              </div>
+            </div>
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
+                <i class="fa fa-users text-xs text-muted-foreground"></i>
+              </div>
+              <div>
+                <p class="text-xs text-muted-foreground">{% trans "Team Members" %}</p>
+                <p class="text-sm font-medium text-card-foreground">{{ startup.total_members }} members</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
+                <i class="fa fa-calendar text-xs text-muted-foreground"></i>
+              </div>
+              <div>
+                <p class="text-xs text-muted-foreground">{% trans "Created" %}</p>
+                <p class="text-sm font-medium text-card-foreground">{{ startup.created_at|date:"M d, Y" }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Warning Message -->
+        <div class="bg-destructive/5 border border-destructive/10 rounded-lg p-4">
+          <p class="text-sm text-destructive font-medium mb-2">{% trans "⚠️ This action cannot be undone!" %}</p>
+          <p class="text-sm text-muted-foreground">
+            Deleting this startup will permanently remove:
+          </p>
+          <ul class="mt-2 space-y-1 text-sm text-muted-foreground list-disc list-inside">
+            <li>{% trans "All startup information and settings" %}</li>
+            <li>{% trans "Team member associations" %}</li>
+            <li>{% trans "Any related data and history" %}</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <form method="post" class="space-y-4">
+        {% csrf_token %}
+        <div class="flex flex-col sm:flex-row gap-3">
+            <button type="submit" 
+                    class="flex-1 inline-flex items-center justify-center px-6 py-3 bg-destructive text-destructive-foreground rounded-xl hover:bg-destructive/90 transition-colors font-medium shadow-sm">
+                <i class="fa fa-trash mr-2"></i>
+                {% trans "Yes, Delete Startup" %}
+            </button>
+            <a href="{{ back_url }}" 
+               class="flex-1 inline-flex items-center justify-center px-6 py-3 text-center bg-secondary text-secondary-foreground rounded-xl hover:bg-secondary/90 transition-colors font-medium border border-border">
+                <i class="fa fa-times mr-2"></i>
+                {% trans "Cancel" %}
+            </a>
+        </div>
+    </form>
+  </div>
+
+{% endblock %}

@@ -1,0 +1,87 @@
+<!-- Subquestion Options Management Modal -->
+<div x-show="showSubQuestionOptionsModal" 
+     x-cloak
+     class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+  <div class="bg-background rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] overflow-hidden">
+    <div class="flex items-center justify-between p-4 border-b border-border">
+      <h3 class="text-lg font-semibold text-card-foreground">
+        Manage Sub-Question Options
+      </h3>
+      <button @click="closeSubQuestionOptionsModal()"
+              class="text-muted-foreground hover:text-card-foreground p-1 rounded">
+        <i class="fa fa-times"></i>
+      </button>
+    </div>
+
+    <div class="p-4 overflow-y-auto" style="max-height: calc(80vh - 120px)">
+      <template x-if="subQuestionOptionsModal">
+        <div>
+          <!-- Subquestion Info -->
+          <div class="mb-4 p-3 bg-muted/20 rounded-lg">
+            <h4 class="font-medium text-card-foreground" x-text="subQuestionOptionsModal.subQuestionText"></h4>
+            <p class="text-sm text-muted-foreground">Sub-Question Type: <span x-text="subQuestionOptionsModal.subQuestionType"></span></p>
+            <p class="text-sm text-muted-foreground">Sub-Question ID: <span x-text="subQuestionOptionsModal.subQuestionId"></span></p>
+          </div>
+
+          <!-- Existing Options -->
+          <div class="mb-4">
+            <h4 class="font-medium text-card-foreground mb-2">Current Options</h4>
+            <template x-if="Array.isArray(subQuestionOptionsModal.options) && subQuestionOptionsModal.options.length > 0">
+              <div class="space-y-2">
+                <template x-for="(option, index) in Array.isArray(subQuestionOptionsModal.options) ? subQuestionOptionsModal.options : []" :key="option.id ? option.id : 'temp-' + index">
+                  <div class="flex items-center justify-between p-3 bg-muted/10 rounded-lg">
+                    <div class="flex-1">
+                      <span class="text-card-foreground" x-text="option.text"></span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <button @click="editSubQuestionOption(option, index)"
+                              class="p-1 text-muted-foreground hover:text-primary rounded"
+                              title="Edit Option">
+                        <i class="fa fa-edit text-xs"></i>
+                      </button>
+                      <button @click="deleteSubQuestionOption(option.id, index)"
+                              class="p-1 text-muted-foreground hover:text-destructive rounded"
+                              title="Delete Option">
+                        <i class="fa fa-trash text-xs"></i>
+                      </button>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </template>
+            <template x-if="!Array.isArray(subQuestionOptionsModal.options) || subQuestionOptionsModal.options.length === 0">
+              <div class="text-center py-8 text-muted-foreground">
+                <i class="fa fa-list-ul text-2xl mb-2"></i>
+                <p>No options added yet</p>
+              </div>
+            </template>
+          </div>
+
+          <!-- Add New Option Form -->
+          <div class="border-t border-border pt-4" x-show="['radio', 'checkbox', 'dropdown'].includes(subQuestionOptionsModal.subQuestionType)">
+            <h4 class="font-medium text-card-foreground mb-3">Add New Option</h4>
+            <div class="flex items-center gap-3">
+              <input x-model="newSubQuestionOptionText"
+                     type="text"
+                     class="flex-1 px-3 py-2 border border-border rounded focus:outline-none focus:border-primary"
+                     placeholder="Enter option text">
+              
+              <button @click="addSubQuestionOption()"
+                      :disabled="!newSubQuestionOptionText.trim()"
+                      class="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50">
+                Add Option
+              </button>
+            </div>
+          </div>
+        </div>
+      </template>
+    </div>
+
+    <div class="flex justify-end p-4 border-t border-border">
+      <button @click="closeSubQuestionOptionsModal()"
+              class="px-4 py-2 text-muted-foreground hover:text-card-foreground rounded">
+        Close
+      </button>
+    </div>
+  </div>
+</div>

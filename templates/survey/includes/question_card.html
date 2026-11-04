@@ -1,0 +1,438 @@
+<!-- Question Card Template -->
+{% load i18n %}
+<div class="bg-card rounded-lg shadow-sm mb-4 p-6 border-l-4 border-primary border border-border transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 hover:border-primary/30 relative min-h-[150px] group"
+     x-data="{ 
+       isEditing: false, 
+       editedText: question.text, 
+       showOptions: true, 
+       showPreview: false,
+       // variable picker state
+       showVarPicker: false,
+       varSearch: '',
+       unknownVars: [],
+       updateUnknown() { this.unknownVars = getUnknownVars(this.editedText, question.id); },
+       insertAtCursor(_el, text) {
+         const input = this.$refs.questionInput;
+         if (input && typeof input.selectionStart === 'number') {
+           const start = input.selectionStart;
+           const end = input.selectionEnd;
+           const value = this.editedText || '';
+           this.editedText = value.slice(0, start) + text + value.slice(end);
+           this.$nextTick(() => {
+             const pos = start + text.length;
+             input.setSelectionRange(pos, pos);
+             input.focus();
+           });
+         } else {
+           this.editedText = (this.editedText || '') + text;
+         }
+         this.updateUnknown();
+       }
+     }" x-init="updateUnknown()" x-effect="updateUnknown()">
+  <!-- Question Header -->
+  <div class="flex items-start justify-between mb-4">
+    <div class="flex-1 pr-32">
+      <template x-if="!isEditing">
+        <div class="mb-2">
+          <div class="flex items-center gap-3">
+            <h3 class="text-lg font-medium text-card-foreground"
+                x-text="(qIndex + 1) + '. ' + getDisplayText('question', question.id, question.text)"></h3>
+            <!-- Translation button and status -->
+            <div x-show="hasMultipleLanguages()" class="flex items-center gap-2">
+              <!-- Translation status indicator -->
+              <div class="flex gap-1" x-data="{ translatedLangs: getTranslationStatus(question.id, 'question') }">
+                <template x-for="lang in availableLanguages.filter(l => l.code !== '{{ survey.default_language }}')" :key="lang.code">
+                  <div class="w-2 h-2 rounded-full border border-border"
+                       :class="translatedLangs.some(tl => tl.code === lang.code) ? 'bg-green-500' : 'bg-gray-300'"
+                       :title="lang.name + (translatedLangs.some(tl => tl.code === lang.code) ? ' ✓' : ' ✗')">
+                  </div>
+                </template>
+              </div>
+              <!-- Translation button -->
+              <button @click="editTranslation(question.id, 'question')"
+                      class="p-1 text-muted-foreground hover:text-primary hover:bg-accent rounded transition-colors relative z-20"
+                      title="Translate">
+                <i class="fa fa-language text-xs"></i>
+              </button>
+            </div>
+          </div>
+          <template x-if="question.hint">
+            <div class="mt-1 flex items-start gap-2">
+              <p class="text-sm text-muted-foreground flex-1" x-text="getDisplayText('hint', question.id, question.hint)"></p>
+              <!-- Hint translation button -->
+              <div x-show="hasMultipleLanguages()" class="flex items-center gap-1">
+                <!-- Translation status indicator -->
+                <div class="flex gap-1" x-data="{ translatedLangs: getTranslationStatus(question.id, 'hint') }">
+                  <template x-for="lang in availableLanguages.filter(l => l.code !== '{{ survey.default_language }}')" :key="lang.code">
+                    <div class="w-2 h-2 rounded-full border border-border"
+                         :class="translatedLangs.some(tl => tl.code === lang.code) ? 'bg-green-500' : 'bg-gray-300'"
+                         :title="lang.name + (translatedLangs.some(tl => tl.code === lang.code) ? ' ✓' : ' ✗')">
+                    </div>
+                  </template>
+                </div>
+                <!-- Translation button -->
+                <button @click="editHintTranslation(question.id)"
+                        class="p-1 text-muted-foreground hover:text-primary hover:bg-accent rounded transition-colors relative z-20"
+                        title="Translate Hint">
+                  <i class="fa fa-language text-xs"></i>
+                </button>
+              </div>
+            </div>
+          </template>
+        </div>
+      </template>
+      <template x-if="isEditing">
+        <div>
+          <input
+            x-ref="questionInput"
+            type="text"
+            class="border-0 border-b-2 border-border py-3 text-base bg-transparent w-full text-card-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors"
+            placeholder="Enter question text"
+            x-model="editedText"
+            @keydown.ctrl.space.prevent="showVarPicker = !showVarPicker"
+            @keydown.enter.prevent="if ((editedText||'').trim()) { updateQuestionText(question.id, editedText); } isEditing = false"
+            @keydown.escape.prevent="editedText = question.text; isEditing = false"
+            @blur="if ((editedText||'').trim() && editedText !== question.text) { updateQuestionText(question.id, editedText); } isEditing = false"
+          />
+          <!-- Unknown variables warning and variable tools -->
+          <div class="mt-2 space-y-2">
+            <template x-if="unknownVars.length > 0">
+              <div class="text-xs text-destructive">
+                Unknown variables: 
+                <template x-for="v in unknownVars" :key="v">
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 border border-destructive/40 rounded bg-destructive/10 text-destructive mr-1">{% templatetag openvariable %}<span x-text="v"></span>{% templatetag closevariable %}</span>
+                </template>
+              </div>
+            </template>
+            <div class="flex items-center gap-2">
+              <button type="button" @click="showVarPicker = !showVarPicker" class="px-2 py-1 text-xs rounded border border-border hover:bg-accent text-card-foreground">
+                Insert variable
+              </button>
+              <button type="button" @click="editKey(question.id)" class="px-2 py-1 text-xs rounded border border-border hover:bg-accent text-card-foreground">
+                Set key
+              </button>
+              <span class="text-xs text-muted-foreground">Press Ctrl-Space for suggestions</span>
+            </div>
+            <div x-show="showVarPicker" x-transition class="border border-border rounded p-2 bg-background">
+              <input type="text" class="form-control text-xs mb-2" placeholder="Search keys..." x-model="varSearch">
+              <div class="max-h-40 overflow-auto space-y-1">
+                <template x-for="k in getAllKeys(question.id).filter(k => (varSearch||'') === '' || k.toLowerCase().includes(varSearch.toLowerCase()))" :key="k">
+                  <button type="button" class="w-full text-left px-2 py-1 text-xs hover:bg-accent rounded" @click="insertAtCursor(null, '{' + '{ ' + k + ' }' + '}'); showVarPicker = false; varSearch = ''" x-text="k"></button>
+                </template>
+                <template x-if="getAllKeys(question.id).length === 0">
+                  <div class="text-xs text-muted-foreground px-2">No keys available yet. Use "Set key" to create one.</div>
+                </template>
+              </div>
+              <template x-if="unknownVars.length > 0">
+                <div class="mt-2 text-xs">
+                  <span class="text-muted-foreground mr-1">Quick actions:</span>
+                  <template x-for="v in unknownVars" :key="v">
+                    <button type="button" class="px-2 py-1 mr-1 border rounded hover:bg-accent" @click="editingKey = { id: question.id, key: v }; saveKey(); showVarPicker = false">Set this question key to <span class='font-mono' x-text="v"></span></button>
+                  </template>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+      </template>
+      <div class="flex items-center gap-4 text-sm text-muted-foreground">
+        <span class="capitalize px-2 py-1 bg-primary/10 text-primary border border-primary/20 rounded-full text-xs"
+              x-text="question.type_display"></span>
+        <template x-if="question.is_required">
+          <span class="px-2 py-1 bg-destructive/10 text-destructive border border-destructive/20 rounded-full text-xs">{% trans "Required" %}</span>
+        </template>
+        <template x-if="question.key">
+          <span class="px-2 py-1 bg-blue-100 text-blue-800 border border-blue-200 rounded-full text-xs"
+                x-text="'{% trans 'Key' %}: ' + question.key"></span>
+        </template>
+        <template x-if="question.group">
+          <span class="px-2 py-1 bg-indigo-100 text-indigo-800 border border-indigo-200 rounded-full text-xs"
+                x-text="'{% trans 'Group' %}: ' + question.group"></span>
+        </template>
+        <!-- Conditions count badge -->
+        <template x-if="question.conditions_count > 0">
+          <span class="px-2 py-1 bg-purple-100 text-purple-800 border border-purple-200 rounded-full text-xs"
+                x-text="question.conditions_count + ' condition' + (question.conditions_count !== 1 ? 's' : '')"
+                title="Number of conditional logic rules"></span>
+        </template>
+        <!-- Unknown variable indicator -->
+        <template x-if="getUnknownVars(question.text, question.id).length > 0">
+          <span class="px-2 py-1 bg-destructive/10 text-destructive border border-destructive/30 rounded-full text-xs"
+                :title="'Unknown variables: ' + getUnknownVars(question.text, question.id).join(', ')">
+            Unknown vars
+          </span>
+        </template>
+        <!-- Options count badge (for questions with options) -->
+        <template x-if="question.requires_options && question.options_count > 0">
+          <span class="px-2 py-1 bg-green-100 text-green-800 border border-green-200 rounded-full text-xs"
+                x-text="question.options_count + ' option' + (question.options_count !== 1 ? 's' : '')"
+                title="Number of answer options"></span>
+        </template>
+      </div>
+    </div>
+    <!-- Question Type Selector -->
+    <select class="absolute right-4 top-4 bg-card border border-border rounded-sm px-2 py-1 text-sm z-10 text-card-foreground focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors"
+            :value="question.type"
+            @change="updateQuestionType(question.id, $event.target.value)"
+            :disabled="isLoading">
+      <option value="text">{% trans "Short answer" %}</option>
+      <option value="textarea">{% trans "Paragraph" %}</option>
+      <option value="radio">{% trans "Multiple choice" %}</option>
+      <option value="checkbox">{% trans "Checkboxes" %}</option>
+      <option value="dropdown">{% trans "Dropdown" %}</option>
+      <option value="number">{% trans "Number" %}</option>
+      <option value="email">{% trans "Email" %}</option>
+      <option value="date">{% trans "Date" %}</option>
+      <option value="note">{% trans "Note/Information" %}</option>
+      <option value="consent">{% trans "Consent Page" %}</option>
+    </select>
+  </div>
+
+  <!-- Question Preview/Sample -->
+  <div class="mb-6" :class="{'hidden': !showPreview}">
+    <template x-if="question.type === 'text'">
+      <input type="text"
+             class="border-0 border-b-2 border-border py-3 text-base bg-transparent w-full text-card-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors"
+             placeholder="Short answer text"
+             disabled>
+    </template>
+    <template x-if="question.type === 'textarea'">
+      <textarea class="border-0 border-b-2 border-border py-3 text-base bg-transparent w-full text-card-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors resize-none"
+                rows="3"
+                placeholder="Long answer text"
+                disabled></textarea>
+    </template>
+    <template x-if="question.type === 'number'">
+      <input type="number"
+             class="border-0 border-b-2 border-border py-3 text-base bg-transparent w-full text-card-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors"
+             placeholder="Number"
+             disabled>
+    </template>
+    <template x-if="question.type === 'email'">
+      <input type="email"
+             class="border-0 border-b-2 border-border py-3 text-base bg-transparent w-full text-card-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors"
+             placeholder="Email address"
+             disabled>
+    </template>
+    <template x-if="question.type === 'date'">
+      <input type="date"
+             class="border-0 border-b-2 border-border py-3 text-base bg-transparent w-full text-card-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors"
+             disabled>
+    </template>
+    
+    <template x-if="question.type === 'note'">
+      <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div class="flex items-start gap-3">
+          <i class="fa fa-info-circle text-blue-600 mt-1"></i>
+          <div class="text-sm text-blue-800 prose prose-blue max-w-none">
+            <span x-text="question.text"></span>
+          </div>
+        </div>
+      </div>
+    </template>
+    
+    <template x-if="question.type === 'consent'">
+      <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+        <div class="flex items-start gap-3">
+          <i class="fa fa-check-circle text-green-600 mt-1"></i>
+          <div class="text-sm text-green-800 prose prose-green max-w-none">
+            <span x-text="question.text"></span>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- Options for Multiple Choice Questions -->
+    <template x-if="question.requires_options">
+      {% include 'survey/includes/question_options.html' %}
+    </template>
+  </div>
+
+  <!-- Options Filter (for option-based questions) -->
+  <template x-if="question.requires_options">
+    <div class="mb-4">
+      <label class="block text-sm font-medium text-card-foreground mb-1">{% trans "Filter options from" %}</label>
+      <select
+        class="form-select w-full border border-border rounded-md bg-background text-card-foreground"
+        :value="question.filter_options_question_id || ''"
+        @change="updateFilterOptionsQuestion(question.id, $event.target.value);"
+      >
+        <option value="">{% trans "-- No filter --" %}</option>
+        <template x-if="currentPage && currentPage.questions">
+          <template x-for="q in currentPage.questions" :key="q.id">
+            <template x-if="q.id !== question.id && ['radio','checkbox','dropdown'].includes(q.type)">
+              <option :value="q.id" x-text="q.text.length > 80 ? q.text.slice(0, 77) + '...' : q.text"
+                :selected="question.filter_options_question_id === q.id"></option>
+            </template>
+          </template>
+        </template>
+      </select>
+      <p class="text-xs text-muted-foreground mt-1">{% trans "If set, this question's options are filtered/mapped from the selected options of the chosen question." %}</p>
+    </div>
+  </template>
+
+  <!-- Question Toolbar -->
+  <div class="flex flex-wrap justify-end items-center gap-1.5 mt-4 pt-4 border-t border-border">
+      <!-- Quick Options Button -->
+      <div class="relative" x-data="{ showQuickOptions: false }" x-show="question.requires_options">
+        <button @click="showQuickOptions = !showQuickOptions"
+                class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium border border-border text-muted-foreground hover:bg-accent hover:text-primary transition-all"
+                title="Quick Options">
+          <i class="fa fa-bolt"></i>
+          Quick Options
+        </button>
+        <!-- Quick Options Dropdown -->
+        <div x-show="showQuickOptions"
+             @click.outside="showQuickOptions = false"
+             class="absolute z-50 left-0 bottom-full mb-2 w-64 bg-card border border-border rounded-lg shadow-lg p-2">
+          <div class="text-xs font-medium text-muted-foreground mb-2 px-2">Quick Options Sets</div>
+          <div class="space-y-1">
+            <button @click="applyQuickOptions(question.id, [
+              'Little To No Input In Decisions',
+              'Input Into Some Decisions',
+              'Input Into Most or All Decisions',
+              'Not Applicable / No Decision Made'
+            ]); showQuickOptions = false"
+                    class="w-full text-left px-3 py-2 text-sm hover:bg-accent rounded-sm transition-colors">
+              Decision-Making Levels
+            </button>
+            <button @click="applyQuickOptions(question.id, [
+              'Not At All',
+              'Small Extent',
+              'Medium Extent',
+              'High Extent'
+            ]); showQuickOptions = false"
+                    class="w-full text-left px-3 py-2 text-sm hover:bg-accent rounded-sm transition-colors">
+              Extent Levels
+            </button>
+            <button @click="applyQuickOptions(question.id, [
+              'Yes',
+              'No'
+            ]); showQuickOptions = false"
+                    class="w-full text-left px-3 py-2 text-sm hover:bg-accent rounded-sm transition-colors">
+              Yes/No
+            </button>
+            <button @click="applyQuickOptions(question.id, [
+              'Yes, Solely',
+              'Yes, Jointly',
+              'Yes, Solely And Jointly',
+              'No'
+            ]); showQuickOptions = false"
+                    class="w-full text-left px-3 py-2 text-sm hover:bg-accent rounded-sm transition-colors">
+              Yes/No with Variations
+            </button>
+            <button @click="applyQuickOptions(question.id, [
+              'Self',
+              'Spouse (or Partner) In HH',
+              'Spouse (or Partner) Outside HH',
+              'Other HH Member',
+              'Non-HH Member, Relative',
+              'Non-HH Member, No Relation',
+              'Government or Other Institution',
+              'Clan (Group of Relatives)',
+              'Not Applicable / No Decision Made'
+            ]); showQuickOptions = false"
+                    class="w-full text-left px-3 py-2 text-sm hover:bg-accent rounded-sm transition-colors">
+              Decision Makers
+            </button>
+            <button @click="applyQuickOptions(question.id, [
+              'Yes, Cash',
+              'Yes, In-Kind',
+              'Yes, Cash And In-Kind',
+              'No',
+              'Don\'t Know'
+            ]); showQuickOptions = false"
+                    class="w-full text-left px-3 py-2 text-sm hover:bg-accent rounded-sm transition-colors">
+              Yes/No Cash/In-Kind
+            </button>
+          </div>
+        </div>
+      </div>
+    <label class="text-muted-foreground text-sm mr-auto flex items-center gap-2 cursor-pointer">
+      <input type="checkbox"
+             :checked="question.is_required"
+             @change="toggleRequired(question.id, $event.target.checked)"
+             class="w-4 h-4">
+      <span>{% trans "Required" %}</span>
+    </label>
+    <!-- Move up/down buttons -->
+    <button @click="moveQuestionUp(question.id)"
+            class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium border border-border text-muted-foreground hover:bg-accent hover:text-primary transition-all"
+            title="{% trans 'Move Up' %}"
+            :disabled="qIndex === 0">
+      <i class="fa fa-arrow-up"></i>
+      {% trans "Up" %}
+    </button>
+    <button @click="moveQuestionDown(question.id)"
+            class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium border border-border text-muted-foreground hover:bg-accent hover:text-primary transition-all"
+            title="{% trans 'Move Down' %}"
+            :disabled="qIndex === currentPage.questions.length - 1">
+      <i class="fa fa-arrow-down"></i>
+      {% trans "Down" %}
+    </button>
+    <!-- Preview toggle button -->
+    <button @click="showPreview = !showPreview"
+            class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium border border-border text-muted-foreground hover:bg-accent hover:text-primary transition-all"
+            :title="showPreview ? '{% trans 'Hide Preview' %}' : '{% trans 'Show Preview' %}'">
+      <i class="fa" :class="showPreview ? 'fa-eye-slash' : 'fa-eye'"></i>
+      <span x-text="showPreview ? '{% trans 'Hide' %}' : '{% trans 'Preview' %}'"></span>
+    </button>
+    <button @click="isEditing = true; $nextTick(() => $refs.questionInput?.focus())"
+            class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium border border-border text-muted-foreground hover:bg-accent hover:text-primary transition-all"
+            title="{% trans 'Edit Question' %}">
+      <i class="fa fa-edit"></i>
+      {% trans "Edit" %}
+    </button>
+    <button @click="editKey(question.id)"
+            class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium border border-border text-muted-foreground hover:bg-accent hover:text-primary transition-all"
+            title="{% trans 'Edit Key' %}">
+      <i class="fa fa-key"></i>
+      {% trans "Key" %}
+    </button>
+    <button @click="editValidation(question.id)"
+            class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium border border-border text-muted-foreground hover:bg-accent hover:text-primary transition-all"
+            title="{% trans 'Validation Rules' %}">
+      <i class="fa fa-clipboard-check"></i>
+      {% trans "Validate" %}
+    </button>
+    <button @click="editHint(question.id)"
+            class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium border border-border text-muted-foreground hover:bg-accent hover:text-primary transition-all"
+            title="{% trans 'Edit Hint' %}">
+      <i class="fa fa-lightbulb-o"></i>
+      {% trans "Hint" %}
+    </button>
+    <!-- Evaluator Condition (consent only) -->
+    <template x-if="question.type === 'consent'">
+      <button @click="editEvaluator(question.id)"
+              class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium border border-border text-muted-foreground hover:bg-accent hover:text-primary transition-all"
+              title="{% trans 'Evaluator Condition' %}">
+          <i class="fa fa-user-check"></i>
+          {% trans "Evaluator" %}
+      </button>
+    </template>
+    <button @click="editGroup(question.id)"
+            class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium border border-border text-muted-foreground hover:bg-accent hover:text-primary transition-all"
+            title="{% trans 'Edit Group' %}">
+        <i class="fa fa-object-group"></i>
+        {% trans "Group" %}
+    </button>
+    <button @click="manageConditions(question.id)"
+            class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium border border-border text-muted-foreground hover:bg-accent hover:text-primary transition-all"
+            title="{% trans 'Conditional Logic' %}">
+      <i class="fa fa-code-fork"></i>
+      {% trans "Conditions" %}
+    </button>
+    <button @click="duplicateQuestion(question.id)"
+            class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium border border-border text-muted-foreground hover:bg-accent hover:text-primary transition-all"
+            title="{% trans 'Duplicate Question' %}">
+      <i class="fa fa-copy"></i>
+      {% trans "Duplicate" %}
+    </button>
+    <button @click="confirmDeleteQuestion(question.id)"
+            class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium border border-destructive/30 text-destructive/70 hover:bg-destructive/10 hover:text-destructive transition-all"
+            title="{% trans 'Delete Question' %}">
+      <i class="fa fa-trash"></i>
+      {% trans "Delete" %}
+    </button>
+  </div>
+</div>

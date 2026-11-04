@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Page Not Found - {{ site_config.site_name }}{% endblock %}
+{% block meta_description %}The page you're looking for could not be found.{% endblock %}
+{% block body_class %}bg-gray-50 text-gray-900 {% endblock %}
+{% block content %}
+  <div class="min-h-screen flex items-center justify-center px-4">
+    <div class="max-w-md w-full text-center">
+      <!-- 404 Illustration -->
+      <div class="mb-8">
+        <div class="inline-flex items-center justify-center w-32 h-32 bg-blue-100 rounded-full mb-6">
+          <i class="fa fa-search text-6xl text-blue-600"></i>
+        </div>
+        <!-- Error Code -->
+        <h1 class="text-8xl font-bold text-gray-900  mb-2">404</h1>
+        <!-- Error Message -->
+        <h2 class="text-2xl font-semibold text-gray-800 mb-4">Page Not Found</h2>
+        <p class="text-gray-600 mb-8 leading-relaxed">
+          Sorry, the page you're looking for doesn't exist. It may have been moved, deleted, or you entered the wrong URL.
+        </p>
+      </div>
+      <!-- Action Buttons -->
+      <div class="space-y-4">
+        <a href="{% url 'management:dashboard' %}"
+           class="inline-flex items-center justify-center w-full px-6 py-3 text-white bg-blue-600 hover:bg-blue-700 rounded-lg font-medium transition-colors duration-200">
+          <i class="fa fa-home mr-2"></i>
+          Go to Dashboard
+        </a>
+        <button onclick="history.back()"
+                class="inline-flex items-center justify-center w-full px-6 py-3 text-gray-700 bg-white hover:bg-gray-50 border border-gray-300 rounded-lg font-medium transition-colors duration-200">
+          <i class="fa fa-arrow-left mr-2"></i>
+          Go Back
+        </button>
+      </div>
+      <!-- Help Text -->
+      <div class="mt-8 text-sm text-gray-500">
+        <p>If you believe this is an error, please contact your system administrator.</p>
+      </div>
+    </div>
+  </div>
+{% endblock %}

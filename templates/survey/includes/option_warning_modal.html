@@ -1,0 +1,417 @@
+{% load i18n %}
+<!-- Option Warning Modal -->
+<template x-if="showOptionWarningModal">
+  <div class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" @click.self="showOptionWarningModal = false; resetOptionWarningModal();">
+    <div class="bg-card rounded-lg shadow-lg max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between p-6 border-b border-border">
+        <!-- Back button (shown only in translation view) -->
+        <button x-show="optionWarningModal.currentView === 'translation'"
+                @click="optionWarningModal.currentView = 'warning'"
+                class="p-2 text-muted-foreground hover:text-primary rounded-full transition-colors mr-2"
+                title="Back to Warning">
+          <i class="fa fa-arrow-left"></i>
+        </button>
+
+        <h2 class="text-xl font-semibold text-card-foreground">
+          <span x-show="optionWarningModal.currentView === 'warning'">{% trans "Option Warning" %}</span>
+          <span x-show="optionWarningModal.currentView === 'translation'">{% trans "Edit Warning Translations" %}</span>
+        </h2>
+
+        <button @click="showOptionWarningModal = false; resetOptionWarningModal();" class="p-2 text-muted-foreground hover:text-destructive rounded-full transition-colors">
+          <i class="fa fa-times"></i>
+        </button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto p-6">
+        <!-- Warning Configuration View -->
+        <div x-show="optionWarningModal.currentView === 'warning'">
+          <template x-if="optionWarningModal.option">
+          <div class="space-y-6">
+            <div class="bg-muted/20 border border-border rounded-lg p-4">
+              <p class="text-sm text-muted-foreground">{% trans "Configure warnings that appear based on other answers. You can show one warning when this option is selected and another when it is not." %}</p>
+              <div class="mt-3 text-sm text-card-foreground">
+                <span class="font-medium">{% trans "Option:" %}</span>
+                <span x-text="optionWarningModal.option.text"></span>
+              </div>
+            </div>
+
+            <div class="space-y-5">
+              <div class="border border-border rounded-lg p-4">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                  <div>
+                    <h3 class="text-lg font-medium text-card-foreground">{% trans "When the option is selected" %}</h3>
+                    <p class="text-xs text-muted-foreground">{% trans "Warn respondents when they choose this option and the condition below is satisfied." %}</p>
+                  </div>
+                  <label class="inline-flex items-center gap-2 text-sm text-card-foreground">
+                    <input type="checkbox"
+                           :checked="optionWarningModal.configs.selected.enabled"
+                           @change="toggleOptionWarningEnabled('selected', $event.target.checked)"
+                           class="w-4 h-4">
+                    <span>{% trans "Enable" %}</span>
+                  </label>
+                </div>
+
+                <template x-if="optionWarningModal.configs.selected.enabled">
+                  <div class="mt-4 space-y-4">
+                    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                      <label class="block text-sm font-medium text-card-foreground">Question source</label>
+                      <div class="flex gap-2 w-full md:w-auto">
+                        <select class="w-full md:w-auto border border-border rounded px-3 py-2 bg-card text-card-foreground focus:outline-none focus:border-primary"
+                                x-model="optionWarningModal.configs.selected.page_id"
+                                @change="refreshOptionWarningQuestions('selected')">
+                          <option value="current">Current page</option>
+                          <option value="all">All pages</option>
+                          <template x-for="page in optionWarningModal.pages" :key="'sel-' + page.id">
+                            <option :value="page.id" x-text="page.title"></option>
+                          </template>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label class="block text-sm font-medium text-card-foreground mb-2">Trigger question</label>
+                     <template x-if="optionWarningModal.configs.selected.availableQuestions.length > 0">
+                        <select x-ref="selectedQuestionSelect"
+                                x-model="optionWarningModal.configs.selected.target_question_id"
+                                @change="updateOptionWarningValueFieldType('selected', optionWarningModal.configs.selected.target_question_id)"
+                                class="w-full border border-border rounded px-3 py-2 bg-card text-card-foreground focus:outline-none focus:border-primary">
+                          <option value="">{% trans "Select a question" %}</option>
+                          <template x-for="q in optionWarningModal.configs.selected.availableQuestions" :key="q.id">
+                            <option :value="String(q.id)"
+                                    x-text="((q.page_title ? q.page_title + ' • ' : '') + q.text)"></option>
+                          </template>
+                        </select>
+                      </template>
+                      <template x-if="optionWarningModal.configs.selected.availableQuestions.length === 0">
+                        <p class="text-sm text-muted-foreground"
+                           x-text="optionWarningModal.configs.selected.page_id === 'current' ? 'No other questions on this page.' : (optionWarningModal.configs.selected.page_id === 'all' ? 'No other questions available in this survey.' : 'No questions on the selected page.')"></p>
+                      </template>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label class="block text-sm font-medium text-card-foreground mb-2">Condition</label>
+                        <select x-model="optionWarningModal.configs.selected.condition_type"
+                                @change="handleOptionWarningConditionChange('selected', optionWarningModal.configs.selected.condition_type)"
+                                class="w-full border border-border rounded px-3 py-2 bg-card text-card-foreground focus:outline-none focus:border-primary">
+                          <option value="equals">{% trans "Equals" %}</option>
+                          <option value="not_equals">{% trans "Not Equals" %}</option>
+                          <option value="contains">{% trans "Contains" %}</option>
+                          <option value="not_contains">{% trans "Not Contains" %}</option>
+                          <option value="greater_than">{% trans "Greater Than" %}</option>
+                          <option value="less_than">{% trans "Less Than" %}</option>
+                          <option value="in">In (any of)</option>
+                          <option value="not_in">Not In (none of)</option>
+                          <option value="is_empty">{% trans "Is Empty" %}</option>
+                          <option value="is_not_empty">{% trans "Is Not Empty" %}</option>
+                        </select>
+                      </div>
+
+                      <template x-if="!['is_empty', 'is_not_empty'].includes(optionWarningModal.configs.selected.condition_type)">
+                        <div>
+                          <label class="block text-sm font-medium text-card-foreground mb-2">
+                            Value
+                            <template x-if="['in', 'not_in'].includes(optionWarningModal.configs.selected.condition_type)">
+                              <span class="text-xs text-muted-foreground">(select multiple or enter comma-separated)</span>
+                            </template>
+                          </label>
+                          <!-- Dropdown for questions with options -->
+                          <div x-show="optionWarningModal.configs.selected.showOptionsDropdown">
+                            <template x-if="['in', 'not_in'].includes(optionWarningModal.configs.selected.condition_type)">
+                              <select x-ref="selectedValueSelect" multiple
+                                      class="w-full border border-border rounded px-3 py-2 bg-card text-card-foreground focus:outline-none focus:border-primary min-h-[100px]"
+                                      @change="optionWarningModal.configs.selected.value = Array.from($event.target.selectedOptions).map(o => o.value)">
+                                <template x-for="opt in optionWarningModal.configs.selected.targetQuestionOptions" :key="opt.id">
+                                  <option :value="opt.text" x-text="opt.text"
+                                          :selected="Array.isArray(optionWarningModal.configs.selected.value) && optionWarningModal.configs.selected.value.includes(opt.text)"></option>
+                                </template>
+                              </select>
+                            </template>
+                            <template x-if="!['in', 'not_in'].includes(optionWarningModal.configs.selected.condition_type)">
+                              <select x-ref="selectedValueSelect"
+                                      class="w-full border border-border rounded px-3 py-2 bg-card text-card-foreground focus:outline-none focus:border-primary"
+                                      @change="optionWarningModal.configs.selected.value = $event.target.value">
+                                <option value="">{% trans "Select value" %}</option>
+                                <template x-for="opt in optionWarningModal.configs.selected.targetQuestionOptions" :key="opt.id">
+                                  <option :value="opt.text" x-text="opt.text"
+                                          :selected="opt.text === optionWarningModal.configs.selected.value"></option>
+                                </template>
+                              </select>
+                            </template>
+                          </div>
+                          <!-- Text input for questions without options -->
+                          <div x-show="!optionWarningModal.configs.selected.showOptionsDropdown">
+                            <template x-if="['in', 'not_in'].includes(optionWarningModal.configs.selected.condition_type)">
+                              <input type="text"
+                                     :value="Array.isArray(optionWarningModal.configs.selected.value) ? optionWarningModal.configs.selected.value.join(', ') : optionWarningModal.configs.selected.value"
+                                     @input="optionWarningModal.configs.selected.value = $event.target.value.split(',').map(v => v.trim()).filter(Boolean)"
+                                     class="w-full border border-border rounded px-3 py-2 bg-card text-card-foreground focus:outline-none focus:border-primary"
+                                     placeholder="Enter comma-separated values">
+                            </template>
+                            <template x-if="!['in', 'not_in'].includes(optionWarningModal.configs.selected.condition_type)">
+                              <input type="text"
+                                     x-model="optionWarningModal.configs.selected.value"
+                                     class="w-full border border-border rounded px-3 py-2 bg-card text-card-foreground focus:outline-none focus:border-primary"
+                                     placeholder="Enter comparison value">
+                            </template>
+                          </div>
+                        </div>
+                      </template>
+                    </div>
+
+                   <div>
+                     <div class="flex items-center justify-between mb-2">
+                       <label class="text-sm font-medium text-card-foreground">Warning message</label>
+                       <button @click="editWarningTranslation(optionWarningModal.option.id, 'selected')"
+                               type="button"
+                               class="p-1 text-muted-foreground hover:text-primary rounded transition-colors"
+                               title="Translate warning message">
+                         <i class="fa fa-language text-xs"></i>
+                       </button>
+                     </div>
+                      <textarea x-model="optionWarningModal.configs.selected.message"
+                                class="w-full h-28 border border-border rounded px-3 py-2 bg-card text-card-foreground focus:outline-none focus:border-primary"
+                                maxlength="1000"
+                                placeholder="Describe the warning shown when the option is selected."></textarea>
+                   </div>
+                  </div>
+                </template>
+              </div>
+
+              <div class="border border-border rounded-lg p-4">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                  <div>
+                    <h3 class="text-lg font-medium text-card-foreground">{% trans "When the option is not selected" %}</h3>
+                    <p class="text-xs text-muted-foreground">{% trans "Warn respondents when they skip this option and the condition below is satisfied." %}</p>
+                  </div>
+                  <label class="inline-flex items-center gap-2 text-sm text-card-foreground">
+                    <input type="checkbox"
+                           :checked="optionWarningModal.configs.not_selected.enabled"
+                           @change="toggleOptionWarningEnabled('not_selected', $event.target.checked)"
+                           class="w-4 h-4">
+                    <span>{% trans "Enable" %}</span>
+                  </label>
+                </div>
+
+                <template x-if="optionWarningModal.configs.not_selected.enabled">
+                  <div class="mt-4 space-y-4">
+                    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                      <label class="block text-sm font-medium text-card-foreground">Question source</label>
+                      <div class="flex gap-2 w-full md:w-auto">
+                        <select class="w-full md:w-auto border border-border rounded px-3 py-2 bg-card text-card-foreground focus:outline-none focus:border-primary"
+                                x-model="optionWarningModal.configs.not_selected.page_id"
+                                @change="refreshOptionWarningQuestions('not_selected')">
+                          <option value="current">Current page</option>
+                          <option value="all">All pages</option>
+                          <template x-for="page in optionWarningModal.pages" :key="'ns-' + page.id">
+                            <option :value="page.id" x-text="page.title"></option>
+                          </template>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label class="block text-sm font-medium text-card-foreground mb-2">Trigger question</label>
+                    <template x-if="optionWarningModal.configs.not_selected.availableQuestions.length > 0">
+                        <select x-ref="notSelectedQuestionSelect"
+                                x-model="optionWarningModal.configs.not_selected.target_question_id"
+                                @change="updateOptionWarningValueFieldType('not_selected', optionWarningModal.configs.not_selected.target_question_id)"
+                                class="w-full border border-border rounded px-3 py-2 bg-card text-card-foreground focus:outline-none focus:border-primary">
+                          <option value="">{% trans "Select a question" %}</option>
+                          <template x-for="q in optionWarningModal.configs.not_selected.availableQuestions" :key="q.id">
+                            <option :value="String(q.id)"
+                                    x-text="((q.page_title ? q.page_title + ' • ' : '') + q.text)"></option>
+                          </template>
+                        </select>
+                      </template>
+                      <template x-if="optionWarningModal.configs.not_selected.availableQuestions.length === 0">
+                        <p class="text-sm text-muted-foreground"
+                           x-text="optionWarningModal.configs.not_selected.page_id === 'current' ? 'No other questions on this page.' : (optionWarningModal.configs.not_selected.page_id === 'all' ? 'No other questions available in this survey.' : 'No questions on the selected page.')"></p>
+                      </template>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label class="block text-sm font-medium text-card-foreground mb-2">Condition</label>
+                        <select x-model="optionWarningModal.configs.not_selected.condition_type"
+                                @change="handleOptionWarningConditionChange('not_selected', optionWarningModal.configs.not_selected.condition_type)"
+                                class="w-full border border-border rounded px-3 py-2 bg-card text-card-foreground focus:outline-none focus:border-primary">
+                          <option value="equals">{% trans "Equals" %}</option>
+                          <option value="not_equals">{% trans "Not Equals" %}</option>
+                          <option value="contains">{% trans "Contains" %}</option>
+                          <option value="not_contains">{% trans "Not Contains" %}</option>
+                          <option value="greater_than">{% trans "Greater Than" %}</option>
+                          <option value="less_than">{% trans "Less Than" %}</option>
+                          <option value="in">In (any of)</option>
+                          <option value="not_in">Not In (none of)</option>
+                          <option value="is_empty">{% trans "Is Empty" %}</option>
+                          <option value="is_not_empty">{% trans "Is Not Empty" %}</option>
+                        </select>
+                      </div>
+
+                      <template x-if="!['is_empty', 'is_not_empty'].includes(optionWarningModal.configs.not_selected.condition_type)">
+                        <div>
+                          <label class="block text-sm font-medium text-card-foreground mb-2">
+                            Value
+                            <template x-if="['in', 'not_in'].includes(optionWarningModal.configs.not_selected.condition_type)">
+                              <span class="text-xs text-muted-foreground">(select multiple or enter comma-separated)</span>
+                            </template>
+                          </label>
+                          <!-- Dropdown for questions with options -->
+                          <div x-show="optionWarningModal.configs.not_selected.showOptionsDropdown">
+                            <template x-if="['in', 'not_in'].includes(optionWarningModal.configs.not_selected.condition_type)">
+                              <select x-ref="notSelectedValueSelect" multiple
+                                      class="w-full border border-border rounded px-3 py-2 bg-card text-card-foreground focus:outline-none focus:border-primary min-h-[100px]"
+                                      @change="optionWarningModal.configs.not_selected.value = Array.from($event.target.selectedOptions).map(o => o.value)">
+                                <template x-for="opt in optionWarningModal.configs.not_selected.targetQuestionOptions" :key="opt.id">
+                                  <option :value="opt.text" x-text="opt.text"
+                                          :selected="Array.isArray(optionWarningModal.configs.not_selected.value) && optionWarningModal.configs.not_selected.value.includes(opt.text)"></option>
+                                </template>
+                              </select>
+                            </template>
+                            <template x-if="!['in', 'not_in'].includes(optionWarningModal.configs.not_selected.condition_type)">
+                              <select x-ref="notSelectedValueSelect"
+                                      class="w-full border border-border rounded px-3 py-2 bg-card text-card-foreground focus:outline-none focus:border-primary"
+                                      @change="optionWarningModal.configs.not_selected.value = $event.target.value">
+                                <option value="">{% trans "Select value" %}</option>
+                                <template x-for="opt in optionWarningModal.configs.not_selected.targetQuestionOptions" :key="opt.id">
+                                  <option :value="opt.text" x-text="opt.text"
+                                          :selected="opt.text === optionWarningModal.configs.not_selected.value"></option>
+                                </template>
+                              </select>
+                            </template>
+                          </div>
+                          <!-- Text input for questions without options -->
+                          <div x-show="!optionWarningModal.configs.not_selected.showOptionsDropdown">
+                            <template x-if="['in', 'not_in'].includes(optionWarningModal.configs.not_selected.condition_type)">
+                              <input type="text"
+                                     :value="Array.isArray(optionWarningModal.configs.not_selected.value) ? optionWarningModal.configs.not_selected.value.join(', ') : optionWarningModal.configs.not_selected.value"
+                                     @input="optionWarningModal.configs.not_selected.value = $event.target.value.split(',').map(v => v.trim()).filter(Boolean)"
+                                     class="w-full border border-border rounded px-3 py-2 bg-card text-card-foreground focus:outline-none focus:border-primary"
+                                     placeholder="Enter comma-separated values">
+                            </template>
+                            <template x-if="!['in', 'not_in'].includes(optionWarningModal.configs.not_selected.condition_type)">
+                              <input type="text"
+                                     x-model="optionWarningModal.configs.not_selected.value"
+                                     class="w-full border border-border rounded px-3 py-2 bg-card text-card-foreground focus:outline-none focus:border-primary"
+                                     placeholder="Enter comparison value">
+                            </template>
+                          </div>
+                        </div>
+                      </template>
+                    </div>
+
+                   <div>
+                     <div class="flex items-center justify-between mb-2">
+                       <label class="text-sm font-medium text-card-foreground">Warning message</label>
+                       <button @click="editWarningTranslation(optionWarningModal.option.id, 'not_selected')"
+                               type="button"
+                               class="p-1 text-muted-foreground hover:text-primary rounded transition-colors"
+                               title="Translate warning message">
+                         <i class="fa fa-language text-xs"></i>
+                       </button>
+                     </div>
+                      <textarea x-model="optionWarningModal.configs.not_selected.message"
+                                class="w-full h-28 border border-border rounded px-3 py-2 bg-card text-card-foreground focus:outline-none focus:border-primary"
+                                maxlength="1000"
+                                placeholder="Describe the warning shown when the option is not selected."></textarea>
+                   </div>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </div>
+        </template>
+        <template x-if="!optionWarningModal.option">
+          <div class="text-sm text-muted-foreground">Loading...</div>
+        </template>
+        </div>
+
+        <!-- Translation View -->
+        <div x-show="optionWarningModal.currentView === 'translation'">
+          <div class="space-y-6">
+            <!-- Warning Type Info -->
+            <div class="bg-muted/20 border border-border rounded-lg p-4">
+              <p class="text-sm text-muted-foreground">
+                Translating warning message for:
+                <span class="font-medium text-card-foreground" x-text="optionWarningModal.editingWarningType === 'selected' ? 'When the option is selected' : 'When the option is not selected'"></span>
+              </p>
+            </div>
+
+            <!-- Original Warning Message -->
+            <div>
+              <label class="block text-sm font-medium mb-2 text-card-foreground">Original Warning Message ({{ survey.default_language|upper }})</label>
+              <div class="p-3 bg-muted/30 rounded border text-sm text-muted-foreground whitespace-pre-wrap"
+                   x-text="optionWarningModal.defaultMessage || 'No warning message'"></div>
+            </div>
+
+            <!-- All Languages Translation -->
+            <div>
+              <label class="block text-sm font-medium mb-3 text-card-foreground">{% trans "Translations" %}</label>
+              <div class="space-y-3">
+                <template x-for="lang in availableLanguages.filter(l => l.code !== '{{ survey.default_language }}')"
+                          :key="lang.code">
+                  <div>
+                    <label class="block text-xs font-medium mb-1 text-card-foreground"
+                           x-text="lang.name + ' (' + lang.code + ')'"></label>
+
+                    <textarea x-model="optionWarningModal.bulkTranslations[lang.code]"
+                              class="form-control text-sm"
+                              rows="3"
+                              maxlength="1000"
+                              :placeholder="'Enter warning message translation in ' + lang.name"></textarea>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer Actions -->
+      <div class="flex flex-col md:flex-row md:justify-between gap-3 p-6 border-t border-border">
+        <!-- Warning View Actions -->
+        <template x-if="optionWarningModal.currentView === 'warning'">
+          <div class="flex flex-col md:flex-row md:justify-between gap-3 w-full">
+            <div>
+              <template x-if="optionWarningModal.option && optionWarningModal.option.option_warning">
+                <button @click="deleteOptionWarning()"
+                        class="px-4 py-2 border border-destructive text-destructive rounded hover:bg-destructive/10 transition-colors">
+                  Remove Warnings
+                </button>
+              </template>
+            </div>
+            <div class="flex gap-3 md:ml-auto">
+              <button @click="showOptionWarningModal = false; resetOptionWarningModal();"
+                      class="px-4 py-2 border border-border text-card-foreground rounded hover:bg-accent">
+                {% trans "Cancel" %}
+              </button>
+              <button @click="saveOptionWarning()"
+                      :disabled="!isValidOptionWarning()"
+                      class="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed">
+                {% trans "Save Warnings" %}
+              </button>
+            </div>
+          </div>
+        </template>
+
+        <!-- Translation View Actions -->
+        <template x-if="optionWarningModal.currentView === 'translation'">
+          <div class="flex gap-3 w-full justify-end">
+            <button @click="optionWarningModal.currentView = 'warning'"
+                    class="px-4 py-2 border border-border text-card-foreground rounded hover:bg-accent">
+              Cancel
+            </button>
+            <button @click="saveBulkWarningTranslationsInModal()"
+                    :disabled="isLoading"
+                    class="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50">
+              <span x-show="!isLoading">Save All Translations</span>
+              <span x-show="isLoading">Saving...</span>
+            </button>
+          </div>
+        </template>
+      </div>
+    </div>
+  </div>
+</template>

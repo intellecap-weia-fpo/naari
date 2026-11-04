@@ -1,0 +1,10 @@
+NAARI
+Copyright (C) 2025-2026 IntelleCap Advisory Services Pvt. Ltd.
+
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General Public License, version 3 only (AGPL-3.0-only). See LICENSE.
+
+The files in `samples/` and `docs/` are licensed under the Creative Commons Attribution 4.0 International licence (CC BY 4.0).
+
+Third-party libraries remain under their own licences, listed in uv.lock and yarn.lock.
+
+This repository does not include the Pro-WEAI or Pro-WEAI+MI questionnaires, whose rights belong to their publishers. Anyone who wants to use them loads them into their own workspace under the publishers' terms. No endorsement by those publishers is implied.

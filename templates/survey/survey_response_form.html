@@ -1,0 +1,346 @@
+{% extends "base_app.html" %}
+{% load static %}
+{% block title %}{{ survey.title }} - {{ site_config.site_name }}{% endblock %}
+{% block extra_js %}
+<script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+{% endblock %}
+{% block main_content %}
+  <div class="max-w-2xl mx-auto p-6">
+    <!-- Survey Header -->
+    <div class="bg-gradient-to-br from-primary via-primary/80 to-accent rounded-xl p-8 text-center text-primary-foreground mb-8">
+      <h1 class="text-3xl font-light mb-2">{{ survey.title }}</h1>
+      {% if survey.description %}
+        <p class="text-lg opacity-90 mb-4">{{ survey.description }}</p>
+      {% endif %}
+      <div class="flex items-center justify-center gap-4 text-sm opacity-80">
+        <div class="flex items-center gap-2">
+          <i class="fa fa-user"></i>
+          <span>{{ survey.created_by.get_full_name|default:survey.created_by.username }}</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <i class="fa fa-file-alt"></i>
+          <span>{{ survey.questions.count }} questions</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Survey Form -->
+    <div class="bg-card rounded-xl border p-8">
+      <form method="post" class="space-y-8" x-data="surveyForm()">
+        {% csrf_token %}
+        
+        {% for page in pages %}
+          {% if page.questions.exists %}
+            <div class="space-y-6">
+              {% if page.title %}
+                <div class="border-b pb-4 mb-6">
+                  <h2 class="text-xl font-semibold text-card-foreground">{{ page.title }}</h2>
+                  {% if page.description %}
+                    <p class="text-muted-foreground mt-2">{{ page.description }}</p>
+                  {% endif %}
+                </div>
+              {% endif %}
+              
+              {% for question in page.questions.all %}
+                <div class="space-y-3">
+                  <label class="block text-sm font-medium text-card-foreground">
+                    {{ question.text }}
+                    {% if question.is_required %}
+                      <span class="text-destructive">*</span>
+                    {% endif %}
+                  </label>
+                  {% if question.hint %}
+                    <p class="text-sm text-muted-foreground">{{ question.hint }}</p>
+                  {% endif %}
+                  
+                  {% with field_name="question_"|add:question.id %}
+                    {% if question.question_type == 'text' %}
+                      <input type="text"
+                             name="{{ field_name }}"
+                             class="form-control"
+                             {% if question.is_required %}required{% endif %}
+                             {% if question.min_length %}minlength="{{ question.min_length }}"{% endif %}
+                             {% if question.max_length %}maxlength="{{ question.max_length }}"{% endif %}
+                             {% if question.validation_pattern %}pattern="{{ question.validation_pattern }}"{% endif %}
+                             {% if question.validation_message %}title="{{ question.validation_message }}"{% endif %}>
+                             
+                    {% elif question.question_type == 'textarea' %}
+                      <textarea name="{{ field_name }}"
+                                class="form-control"
+                                rows="4"
+                                {% if question.is_required %}required{% endif %}
+                                {% if question.min_length %}minlength="{{ question.min_length }}"{% endif %}
+                                {% if question.max_length %}maxlength="{{ question.max_length }}"{% endif %}
+                                {% if question.validation_pattern %}pattern="{{ question.validation_pattern }}"{% endif %}
+                                {% if question.validation_message %}title="{{ question.validation_message }}"{% endif %}></textarea>
+                                
+                    {% elif question.question_type == 'email' %}
+                      <input type="email"
+                             name="{{ field_name }}"
+                             class="form-control"
+                             {% if question.is_required %}required{% endif %}
+                             {% if question.min_length %}minlength="{{ question.min_length }}"{% endif %}
+                             {% if question.max_length %}maxlength="{{ question.max_length }}"{% endif %}
+                             {% if question.validation_pattern %}pattern="{{ question.validation_pattern }}"{% endif %}
+                             {% if question.validation_message %}title="{{ question.validation_message }}"{% endif %}>
+                             
+                    {% elif question.question_type == 'number' %}
+                      <input type="number"
+                             name="{{ field_name }}"
+                             class="form-control"
+                             {% if question.is_required %}required{% endif %}
+                             {% if question.min_value %}min="{{ question.min_value }}"{% endif %}
+                             {% if question.max_value %}max="{{ question.max_value }}"{% endif %}>
+                             
+                    {% elif question.question_type == 'date' %}
+                      <input type="date"
+                             name="{{ field_name }}"
+                             class="form-control"
+                             {% if question.is_required %}required{% endif %}>
+                             
+                    {% elif question.question_type == 'radio' %}
+                      <div class="space-y-2">
+                        {% for option in question.options.all %}
+                          <div class="flex flex-col gap-2">
+                            <div class="flex items-center gap-2">
+                              <input type="radio"
+                                     name="{{ field_name }}"
+                                     value="{{ option.id }}"
+                                     id="{{ field_name }}_{{ option.id }}"
+                                     class="form-check-input"
+                                     x-on:change="handleOptionSelection({{ question.id }}, {{ option.id }})"
+                                     {% if question.is_required %}required{% endif %}>
+                              <label for="{{ field_name }}_{{ option.id }}" class="text-sm text-card-foreground">
+                                {{ option.text }}
+                              </label>
+                            </div>
+                            {% if option.sub_questions.exists %}
+                              <div x-show="selectedOptions[{{ question.id }}] === {{ option.id }}"
+                                   x-transition
+                                   class="ml-6 pl-4 border-l-2 border-primary/30 space-y-4 mt-2"
+                                   x-init="loadSubquestions({{ option.id }}, $el)">
+                                <!-- Subquestions will be loaded dynamically -->
+                              </div>
+                            {% endif %}
+                          </div>
+                        {% endfor %}
+                      </div>
+                      
+                    {% elif question.question_type == 'checkbox' %}
+                      <div class="space-y-2">
+                        {% for option in question.options.all %}
+                          <div class="flex flex-col gap-2">
+                            <div class="flex items-center gap-2">
+                              <input type="checkbox"
+                                     name="{{ field_name }}"
+                                     value="{{ option.id }}"
+                                     id="{{ field_name }}_{{ option.id }}"
+                                     class="form-check-input"
+                                     x-on:change="handleCheckboxSelection({{ question.id }}, {{ option.id }}, $event.target.checked)">
+                              <label for="{{ field_name }}_{{ option.id }}" class="text-sm text-card-foreground">
+                                {{ option.text }}
+                              </label>
+                            </div>
+                            {% if option.sub_questions.exists %}
+                              <div x-show="selectedCheckboxes[{{ question.id }}]?.includes({{ option.id }})"
+                                   x-transition
+                                   class="ml-6 pl-4 border-l-2 border-primary/30 space-y-4 mt-2"
+                                   x-init="loadSubquestions({{ option.id }}, $el)">
+                                <!-- Subquestions will be loaded dynamically -->
+                              </div>
+                            {% endif %}
+                          </div>
+                        {% endfor %}
+                      </div>
+                      
+                    {% elif question.question_type == 'dropdown' %}
+                      <select name="{{ field_name }}"
+                              class="form-control"
+                              x-on:change="handleDropdownSelection({{ question.id }}, $event.target.value)"
+                              {% if question.is_required %}required{% endif %}>
+                        <option value="">Select an option</option>
+                        {% for option in question.options.all %}
+                          <option value="{{ option.id }}">{{ option.text }}</option>
+                        {% endfor %}
+                      </select>
+                      
+                      {% for option in question.options.all %}
+                        {% if option.sub_questions.exists %}
+                          <div x-show="selectedOptions[{{ question.id }}] === {{ option.id }}"
+                               x-transition
+                               class="ml-4 pl-4 border-l-2 border-primary/30 space-y-4 mt-4"
+                               x-init="loadSubquestions({{ option.id }}, $el)">
+                            <!-- Subquestions will be loaded dynamically -->
+                          </div>
+                        {% endif %}
+                      {% endfor %}
+                    
+                    {% elif question.question_type == 'note' %}
+                      <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-2">
+                        <div class="flex items-start gap-3">
+                          <i class="fa fa-info-circle text-blue-600 mt-1"></i>
+                          <div class="text-sm text-blue-800 prose prose-blue max-w-none">
+                            {{ question.get_processed_text|safe }}
+                          </div>
+                        </div>
+                      </div>
+                      
+                    {% elif question.question_type == 'consent' %}
+                      <div class="bg-green-50 border border-green-200 rounded-lg p-4 mt-2">
+                        <div class="flex items-start gap-3">
+                          <i class="fa fa-check-circle text-green-600 mt-1"></i>
+                          <div class="text-sm text-green-800 prose prose-green max-w-none">
+                            {{ question.get_processed_text|safe }}
+                          </div>
+                        </div>
+                      </div>
+                    {% endif %}
+                  {% endwith %}
+                  
+                  {% if form.errors %}
+                    {% with field_name="question_"|add:question.id %}
+                      {% for field, errors in form.errors.items %}
+                        {% if field == field_name %}
+                          <div class="text-sm text-destructive">{{ errors|first }}</div>
+                        {% endif %}
+                      {% endfor %}
+                    {% endwith %}
+                  {% endif %}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endfor %}
+        
+        <!-- Submit Button -->
+        <div class="pt-6 border-t">
+          <button type="submit"
+                  class="w-full bg-primary text-primary-foreground px-6 py-3 rounded-lg font-semibold hover:bg-primary/90 transition-colors">
+            <i class="fa fa-paper-plane mr-2"></i>
+            Submit Survey
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- JavaScript for handling subquestions with lazy loading and geolocation -->
+  <script>
+    function surveyForm() {
+      return {
+        selectedOptions: {},
+        selectedCheckboxes: {},
+        loadedSubquestions: new Set(),
+        latitude: null,
+        longitude: null,
+        geolocationSupported: false,
+        
+        init() {
+          // Initialize selected options state
+          this.selectedOptions = {};
+          this.selectedCheckboxes = {};
+          
+          // Check if geolocation is supported and capture location
+          if ('geolocation' in navigator) {
+            this.geolocationSupported = true;
+            this.captureGeolocation();
+          }
+        },
+        
+        captureGeolocation() {
+          if (!this.geolocationSupported) {
+            return;
+          }
+          
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              this.latitude = position.coords.latitude;
+              this.longitude = position.coords.longitude;
+              
+              // Add hidden fields to the form
+              this.addGeolocationFields();
+            },
+            (error) => {
+              console.log('Geolocation error:', error.message);
+              // Silently fail - geolocation is optional
+            },
+            {
+              enableHighAccuracy: true,
+              timeout: 5000,
+              maximumAge: 0
+            }
+          );
+        },
+        
+        addGeolocationFields() {
+          if (this.latitude !== null && this.longitude !== null) {
+            const form = this.$el;
+            
+            // Remove any existing geolocation fields
+            const existingLatField = form.querySelector('input[name="latitude"]');
+            const existingLonField = form.querySelector('input[name="longitude"]');
+            
+            if (existingLatField) existingLatField.remove();
+            if (existingLonField) existingLonField.remove();
+            
+            // Add new hidden fields
+            const latField = document.createElement('input');
+            latField.type = 'hidden';
+            latField.name = 'latitude';
+            latField.value = this.latitude;
+            
+            const lonField = document.createElement('input');
+            lonField.type = 'hidden';
+            lonField.name = 'longitude';
+            lonField.value = this.longitude;
+            
+            form.appendChild(latField);
+            form.appendChild(lonField);
+          }
+        },
+        
+        async loadSubquestions(optionId, containerElement) {
+          // Only load subquestions once per option
+          if (this.loadedSubquestions.has(optionId)) {
+            return;
+          }
+          
+          try {
+            const response = await fetch(`/survey/api/option/${optionId}/subquestions/`);
+            if (response.ok) {
+              const data = await response.json();
+              if (data.status === 'success') {
+                containerElement.innerHTML = data.html;
+                this.loadedSubquestions.add(optionId);
+              }
+            }
+          } catch (error) {
+            console.error('Error loading subquestions:', error);
+          }
+        },
+        
+        handleOptionSelection(questionId, optionId) {
+          this.selectedOptions[questionId] = optionId;
+        },
+        
+        handleCheckboxSelection(questionId, optionId, isChecked) {
+          if (!this.selectedCheckboxes[questionId]) {
+            this.selectedCheckboxes[questionId] = [];
+          }
+          
+          if (isChecked) {
+            if (!this.selectedCheckboxes[questionId].includes(optionId)) {
+              this.selectedCheckboxes[questionId].push(optionId);
+            }
+          } else {
+            this.selectedCheckboxes[questionId] = this.selectedCheckboxes[questionId].filter(id => id !== optionId);
+          }
+        },
+        
+        handleDropdownSelection(questionId, optionId) {
+          this.selectedOptions[questionId] = optionId ? parseInt(optionId) : null;
+        }
+      }
+    }
+  </script>
+{% endblock %}

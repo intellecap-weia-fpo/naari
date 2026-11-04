@@ -1,0 +1,160 @@
+{% extends "base_app.html" %}
+{% load static %}
+{% load i18n %}
+{% block title %}{{ title }} - {{ site_config.site_name }}{% endblock %}
+{% block main_content %}
+  <div class="space-y-6">
+    <!-- Header -->
+    <div class="bg-card rounded-lg border border-border p-6">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 class="text-2xl font-bold text-card-foreground">{{ title }}</h1>
+          <p class="text-muted-foreground">
+            {% if survey %}
+              {% trans "Update your project details and settings" %}
+            {% else %}
+              {% trans "Create a new project to collect responses" %}
+            {% endif %}
+          </p>
+        </div>
+        <div class="flex items-center gap-2">
+          <a href="{% url 'survey:survey_list' %}"
+             class="inline-flex items-center gap-2 px-4 py-2 border border-border rounded-lg text-sm font-medium text-card-foreground bg-background hover:bg-accent transition-colors">
+            <i class="fa fa-arrow-left text-xs"></i>
+            {% trans "Back to Projects" %}
+          </a>
+        </div>
+      </div>
+    </div>
+    <!-- Form -->
+    <div class="bg-card rounded-lg border border-border p-6">
+      <form method="post" class="space-y-6">
+        {% csrf_token %}
+        <!-- Project Title -->
+        <div class="space-y-2">
+          <label for="{{ form.title.id_for_label }}"
+                 class="block text-sm font-medium text-card-foreground">
+            {% trans "Project Title" %}
+            <span class="text-destructive">*</span>
+          </label>
+          {{ form.title }}
+          {% if form.title.errors %}<div class="text-sm text-destructive">{{ form.title.errors|first }}</div>{% endif %}
+          <p class="text-xs text-muted-foreground">{% trans "Give your project a clear, descriptive title" %}</p>
+        </div>
+        <!-- Project Description -->
+        <div class="space-y-2">
+          <label for="{{ form.description.id_for_label }}"
+                 class="block text-sm font-medium text-card-foreground">{% trans "Description" %}</label>
+          {{ form.description }}
+          {% if form.description.errors %}
+            <div class="text-sm text-destructive">{{ form.description.errors|first }}</div>
+          {% endif %}
+          <p class="text-xs text-muted-foreground">{% trans "Provide additional context or instructions for respondents (optional)" %}</p>
+        </div>
+        <!-- Consent Text -->
+        <div class="space-y-2">
+          <label for="{{ form.consent_text.id_for_label }}"
+                 class="block text-sm font-medium text-card-foreground">{% trans "Consent Text" %}</label>
+          {{ form.consent_text }}
+          {% if form.consent_text.errors %}
+            <div class="text-sm text-destructive">{{ form.consent_text.errors|first }}</div>
+          {% endif %}
+          <p class="text-xs text-muted-foreground">{% trans "Text displayed to respondents before they start the project (optional, max 5000 characters)" %}</p>
+        </div>
+        <!-- End Date -->
+        <div class="space-y-2">
+          <label for="{{ form.end_date.id_for_label }}"
+                 class="block text-sm font-medium text-card-foreground">{% trans "End Date" %}</label>
+          {{ form.end_date }}
+          {% if form.end_date.errors %}
+            <div class="text-sm text-destructive">{{ form.end_date.errors|first }}</div>
+          {% endif %}
+          <p class="text-xs text-muted-foreground">{% trans "Set an optional end date for the project (optional)" %}</p>
+        </div>
+        <!-- Active Status -->
+        <div class="space-y-2">
+          <div class="flex items-center gap-3">
+            {{ form.is_active }}
+            <label for="{{ form.is_active.id_for_label }}"
+                   class="text-sm font-medium text-card-foreground">{% trans "Active Project" %}</label>
+          </div>
+          {% if form.is_active.errors %}<div class="text-sm text-destructive">{{ form.is_active.errors|first }}</div>{% endif %}
+          <p class="text-xs text-muted-foreground">{% trans "Only active projects can receive new responses" %}</p>
+        </div>
+        <!-- Multiple Submissions -->
+        <div class="space-y-2">
+          <div class="flex items-center gap-3">
+            {{ form.allow_multiple_submissions }}
+            <label for="{{ form.allow_multiple_submissions.id_for_label }}"
+                   class="text-sm font-medium text-card-foreground">{% trans "Allow Multiple Submissions" %}</label>
+          </div>
+          {% if form.allow_multiple_submissions.errors %}<div class="text-sm text-destructive">{{ form.allow_multiple_submissions.errors|first }}</div>{% endif %}
+          <p class="text-xs text-muted-foreground">{% trans "Allow the same user to submit multiple responses to this project" %}</p>
+        </div>
+        <!-- Display Mode -->
+        <div class="space-y-2">
+          <label for="{{ form.display_mode.id_for_label }}"
+                 class="block text-sm font-medium text-card-foreground">{% trans "Display Mode" %}</label>
+          {{ form.display_mode }}
+          {% if form.display_mode.errors %}<div class="text-sm text-destructive">{{ form.display_mode.errors|first }}</div>{% endif %}
+          <p class="text-xs text-muted-foreground">{% trans "Choose how questions are displayed to users during project completion and preview" %}</p>
+        </div>
+        
+        <!-- Project Visibility -->
+        <div class="space-y-2">
+          <label for="{{ form.visibility.id_for_label }}"
+                 class="block text-sm font-medium text-card-foreground">{% trans "Project Access" %}</label>
+          {{ form.visibility }}
+          {% if form.visibility.errors %}<div class="text-sm text-destructive">{{ form.visibility.errors|first }}</div>{% endif %}
+          <p class="text-xs text-muted-foreground">{% trans "Control who can access and respond to this project" %}</p>
+        </div>
+        
+        <!-- Render Field -->
+        <div class="space-y-2">
+          <label for="{{ form.render_field.id_for_label }}"
+                 class="block text-sm font-medium text-card-foreground">{% trans "Submission Title Field" %}</label>
+          {{ form.render_field }}
+          {% if form.render_field.errors %}<div class="text-sm text-destructive">{{ form.render_field.errors|first }}</div>{% endif %}
+          <p class="text-xs text-muted-foreground">{% trans "Select a question whose answer will be used as the title for submissions (optional)" %}</p>
+        </div>
+        <!-- Form Actions -->
+        <div class="flex flex-col sm:flex-row gap-3 pt-6 border-t border-border">
+          <button type="submit"
+                  class="inline-flex items-center justify-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:bg-primary/90 transition-all duration-200 shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30">
+            <i class="fa fa-save text-sm"></i>
+            {% if survey %}
+              {% trans "Update Project" %}
+            {% else %}
+              {% trans "Create Project" %}
+            {% endif %}
+          </button>
+          <a href="{% url 'survey:survey_list' %}"
+             class="inline-flex items-center justify-center gap-2 px-6 py-3 border border-border rounded-lg text-sm font-medium text-card-foreground bg-background hover:bg-accent transition-colors">
+            <i class="fa fa-times text-sm"></i>
+            {% trans "Cancel" %}
+          </a>
+        </div>
+      </form>
+    </div>
+    <!-- Help Section -->
+    {% if not survey %}
+      <div class="bg-blue-50 border border-blue-200 rounded-lg p-6">
+        <div class="flex gap-4">
+          <div class="flex-shrink-0">
+            <i class="fa fa-info-circle text-blue-600 text-lg"></i>
+          </div>
+          <div class="space-y-2">
+            <h3 class="text-sm font-semibold text-blue-900">{% trans "Next Steps" %}</h3>
+            <p class="text-sm text-blue-800">{% trans "After creating your project, you'll be able to:" %}</p>
+            <ul class="text-sm text-blue-800 space-y-1 ml-4">
+              <li>• {% trans "Add multiple pages to organize your questions" %}</li>
+              <li>• {% trans "Create different types of questions (text, multiple choice, etc.)" %}</li>
+              <li>• {% trans "Reorder and customize your project structure" %}</li>
+              <li>• {% trans "Preview your project before sharing" %}</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+{% endblock %}

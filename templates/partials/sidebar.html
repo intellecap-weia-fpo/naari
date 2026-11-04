@@ -1,0 +1,144 @@
+{% load i18n %}
+{% load solo_tags %}
+{% load sidebar_tags %}
+{% get_solo 'neo.SiteConfiguration' as site_config %}
+<!-- Check if current URL matches any app -->
+{% url_match_app request.path as matched_app %}
+{% if matched_app %}
+  <!-- Sidebar Overlay (mobile only) -->
+  <div x-show="sidebarOpen"
+       x-transition:enter="transition-opacity ease-out duration-300"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100"
+       x-transition:leave="transition-opacity ease-in duration-200"
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0"
+       class="fixed top-16 bottom-0 left-0 right-0 bg-black/30 backdrop-blur-md z-40 lg:hidden"
+       @click="toggleSidebar()"></div>
+  <!-- Sidebar -->
+  <aside
+    class="bg-card/95 backdrop-blur-xl border-r border-border/50 flex-col shadow-2xl lg:shadow-none transition-all duration-300 ease-in-out fixed top-16 bottom-0 left-0 z-40 flex flex-col h-full lg:block"
+    :class="sidebarCollapsed ? 'w-16' : 'w-full sm:w-64 xl:w-72'"
+    x-show="sidebarOpen"
+    x-transition:enter="transition-all duration-300 ease-out lg:transition-none"
+    x-transition:enter-start="transform -translate-x-full opacity-0 lg:transform-none lg:opacity-100"
+    x-transition:enter-end="transform translate-x-0 opacity-100"
+    x-transition:leave="transition-all duration-200 ease-in lg:transition-none"
+    x-transition:leave-start="transform translate-x-0 opacity-100 lg:transform-none"
+    x-transition:leave-end="transform -translate-x-full opacity-0 lg:transform-none lg:opacity-100"
+    style="display: flex"
+    turbo-frame
+    id="sidebar-content">
+    <!-- Sidebar Header -->
+    <div class="flex items-center justify-between p-4 border-b border-border/50 lg:hidden bg-card/50">
+      <h2 class="text-lg font-semibold text-card-foreground">{% trans "Navigation" %}</h2>
+      <button @click="toggleSidebar()"
+              class="p-2 rounded-xl hover:bg-accent/60 text-muted-foreground hover:text-card-foreground transition-all duration-200 hover:scale-110 active:scale-95">
+        <i class="fa fa-times text-lg"></i>
+      </button>
+    </div>
+    <!-- Navigation Menu -->
+    <nav class="relative flex flex-1 flex-col" :class="sidebarCollapsed ? 'pt-4 lg:pt-5' : 'p-3 lg:p-4'">
+      <ul role="list" class="flex flex-1 flex-col gap-y-7">
+        {% if matched_app.menu_items %}
+          <li>
+            <ul role="list" class="space-y-1" :class="sidebarCollapsed ? 'px-2' : '-mx-2'">
+              {% for item in matched_app.menu_items %}
+                {% if not item.children %}
+                  <li>
+                    <button type="button"
+                            onclick="Turbo.visit('{{ item.url }}')"
+                            class="w-full group flex rounded-md p-2 text-sm/6 font-semibold transition-all duration-200 {% if item.is_active %}text-primary bg-accent/80{% else %}text-card-foreground hover:text-primary hover:bg-accent/80{% endif %}"
+                            :class="sidebarCollapsed ? 'justify-center' : 'gap-x-3'"
+                            :title="sidebarCollapsed ? '{{ item.name }}' : ''"
+                            @click="$event.stopPropagation()">
+                      <template x-if="!sidebarCollapsed">
+                        <div class="flex items-center space-x-2 lg:space-x-3 flex-1 min-w-0">
+                          <div class="w-5 h-5 flex items-center justify-center flex-shrink-0">
+                            <i class="{{ item.icon_class }} text-current"></i>
+                          </div>
+                          <span class="text-sm font-medium truncate">{{ item.name }}</span>
+                          {% if item.badge %}
+                            <span class="ml-auto px-2 py-0.5 text-xs rounded-full {{ item.badge.class }}">{{ item.badge.text }}</span>
+                          {% endif %}
+                        </div>
+                      </template>
+                      <template x-if="sidebarCollapsed">
+                        <div class="w-5 h-5 flex items-center justify-center flex-shrink-0">
+                          <i class="{{ item.icon_class }} text-current"></i>
+                        </div>
+                      </template>
+                    </button>
+                  </li>
+                {% endif %}
+              {% endfor %}
+            </ul>
+          </li>
+
+          {% for item in matched_app.menu_items %}
+            {% if item.children %}
+              <li class="mt-5" x-show="!sidebarCollapsed">
+                <div class="ml-2 text-sm font-medium text-muted-foreground">{{ item.name }}</div>
+                <ul role="list" class="mt-2 space-y-1" :class="sidebarCollapsed ? 'px-2' : '-mx-2'">
+                  {% for child in item.children %}
+                    <li>
+                      <button type="button"
+                              onclick="Turbo.visit('{{ child.url }}')"
+                              class="w-full group flex rounded-md p-2 text-sm/6 font-semibold transition-all duration-200 {% if child.is_active %}text-primary bg-accent/80{% else %}text-card-foreground hover:text-primary hover:bg-accent/80{% endif %}"
+                              :class="sidebarCollapsed ? 'justify-center' : 'gap-x-3'"
+                              :title="sidebarCollapsed ? '{{ child.name }}' : ''"
+                              @click="$event.stopPropagation()">
+                        <template x-if="!sidebarCollapsed">
+                          <div class="flex items-center space-x-2 lg:space-x-3 flex-1 min-w-0">
+                            <div class="w-5 h-5 flex items-center justify-center flex-shrink-0">
+                              <i class="{{ child.icon_class|default:'fa fa-circle' }} text-current"></i>
+                            </div>
+                            <span class="text-sm font-medium truncate">{{ child.name }}</span>
+                            {% if child.badge %}
+                              <span class="ml-auto px-2 py-0.5 text-xs rounded-full {{ child.badge.class }}">{{ child.badge.text }}</span>
+                            {% endif %}
+                          </div>
+                        </template>
+                        <template x-if="sidebarCollapsed">
+                          <div class="w-5 h-5 flex items-center justify-center flex-shrink-0">
+                            <i class="{{ child.icon_class|default:'fa fa-circle' }} text-current"></i>
+                          </div>
+                        </template>
+                      </button>
+                    </li>
+                  {% endfor %}
+                </ul>
+              </li>
+              <!-- Collapsed state: show child items as individual icons -->
+              <li x-show="sidebarCollapsed" class="space-y-1">
+                {% if item.children %}
+                  <div class="border-t border-gray-300 mx-2 my-4"></div>
+                {% endif %}
+                {% for child in item.children %}
+                  <div class="px-2">
+                    <button type="button"
+                            onclick="Turbo.visit('{{ child.url }}')"
+                            class="w-full group flex justify-center rounded-md p-2 text-sm/6 font-semibold transition-all duration-200 {% if child.is_active %}text-primary bg-accent/80{% else %}text-card-foreground hover:text-primary hover:bg-accent/80{% endif %}"
+                            title="{{ child.name }}"
+                            @click="$event.stopPropagation()">
+                      <div class="w-5 h-5 flex items-center justify-center">
+                        <i class="{{ child.icon_class|default:'fa fa-circle' }} text-current"></i>
+                      </div>
+                    </button>
+                  </div>
+                {% endfor %}
+              </li>
+            {% endif %}
+          {% endfor %}
+        {% else %}
+          <li>
+            <div class="text-center py-8 text-muted-foreground">
+              <i class="fa fa-folder text-3xl mb-2 opacity-50"></i>
+              <p class="text-sm">{% trans "No menu items available" %}</p>
+            </div>
+          </li>
+        {% endif %}
+      </ul>
+    </nav>
+  </aside>
+{% endif %}

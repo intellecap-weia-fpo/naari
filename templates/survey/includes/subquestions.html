@@ -1,0 +1,103 @@
+{% for sub_question in sub_questions %}
+  <div class="space-y-2">
+    <label class="block text-sm font-medium text-card-foreground">
+      {{ sub_question.text }}
+      {% if sub_question.is_required %}
+        <span class="text-destructive">*</span>
+      {% endif %}
+    </label>
+    {% if sub_question.hint %}
+      <p class="text-sm text-muted-foreground">{{ sub_question.hint }}</p>
+    {% endif %}
+    
+    {% with sub_field_name="subquestion_"|add:sub_question.id %}
+      {% if sub_question.question_type == 'text' %}
+        <input type="text" 
+               name="{{ sub_field_name }}" 
+               class="form-control"
+               {% if sub_question.is_required %}required{% endif %}
+               {% if sub_question.min_length %}minlength="{{ sub_question.min_length }}"{% endif %}
+               {% if sub_question.max_length %}maxlength="{{ sub_question.max_length }}"{% endif %}
+               {% if sub_question.validation_pattern %}pattern="{{ sub_question.validation_pattern }}"{% endif %}
+               {% if sub_question.validation_message %}title="{{ sub_question.validation_message }}"{% endif %}>
+               
+      {% elif sub_question.question_type == 'textarea' %}
+        <textarea name="{{ sub_field_name }}" 
+                  class="form-control" 
+                  rows="3"
+                  {% if sub_question.is_required %}required{% endif %}
+                  {% if sub_question.min_length %}minlength="{{ sub_question.min_length }}"{% endif %}
+                  {% if sub_question.max_length %}maxlength="{{ sub_question.max_length }}"{% endif %}
+                  {% if sub_question.validation_pattern %}pattern="{{ sub_question.validation_pattern }}"{% endif %}
+                  {% if sub_question.validation_message %}title="{{ sub_question.validation_message }}"{% endif %}></textarea>
+                  
+      {% elif sub_question.question_type == 'email' %}
+        <input type="email" 
+               name="{{ sub_field_name }}" 
+               class="form-control"
+               {% if sub_question.is_required %}required{% endif %}
+               {% if sub_question.min_length %}minlength="{{ sub_question.min_length }}"{% endif %}
+               {% if sub_question.max_length %}maxlength="{{ sub_question.max_length }}"{% endif %}
+               {% if sub_question.validation_pattern %}pattern="{{ sub_question.validation_pattern }}"{% endif %}
+               {% if sub_question.validation_message %}title="{{ sub_question.validation_message }}"{% endif %}>
+               
+      {% elif sub_question.question_type == 'number' %}
+        <input type="number" 
+               name="{{ sub_field_name }}" 
+               class="form-control"
+               {% if sub_question.is_required %}required{% endif %}
+               {% if sub_question.min_value %}min="{{ sub_question.min_value }}"{% endif %}
+               {% if sub_question.max_value %}max="{{ sub_question.max_value }}"{% endif %}>
+               
+      {% elif sub_question.question_type == 'date' %}
+        <input type="date" 
+               name="{{ sub_field_name }}" 
+               class="form-control"
+               {% if sub_question.is_required %}required{% endif %}>
+               
+      {% elif sub_question.question_type == 'radio' %}
+        <div class="space-y-1 ml-2">
+          {% for sub_option in sub_question.options.all %}
+            <div class="flex items-center gap-2">
+              <input type="radio" 
+                     name="{{ sub_field_name }}" 
+                     value="{{ sub_option.id }}"
+                     id="{{ sub_field_name }}_{{ sub_option.id }}"
+                     class="form-check-input"
+                     {% if sub_question.is_required %}required{% endif %}>
+              <label for="{{ sub_field_name }}_{{ sub_option.id }}" class="text-sm text-card-foreground">
+                {{ sub_option.text }}
+              </label>
+            </div>
+          {% endfor %}
+        </div>
+        
+      {% elif sub_question.question_type == 'checkbox' %}
+        <div class="space-y-1 ml-2">
+          {% for sub_option in sub_question.options.all %}
+            <div class="flex items-center gap-2">
+              <input type="checkbox" 
+                     name="{{ sub_field_name }}" 
+                     value="{{ sub_option.id }}"
+                     id="{{ sub_field_name }}_{{ sub_option.id }}"
+                     class="form-check-input">
+              <label for="{{ sub_field_name }}_{{ sub_option.id }}" class="text-sm text-card-foreground">
+                {{ sub_option.text }}
+              </label>
+            </div>
+          {% endfor %}
+        </div>
+        
+      {% elif sub_question.question_type == 'dropdown' %}
+        <select name="{{ sub_field_name }}" 
+                class="form-control"
+                {% if sub_question.is_required %}required{% endif %}>
+          <option value="">Select an option</option>
+          {% for sub_option in sub_question.options.all %}
+            <option value="{{ sub_option.id }}">{{ sub_option.text }}</option>
+          {% endfor %}
+        </select>
+      {% endif %}
+    {% endwith %}
+  </div>
+{% endfor %}

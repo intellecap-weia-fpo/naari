@@ -1,0 +1,292 @@
+{% extends "base.html" %}
+{% load i18n static %}
+
+{% block title %}{% trans "Import/Export Submissions" %} - {{ survey.title }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="mb-6">
+        <nav class="flex items-center space-x-2 text-sm text-muted-foreground">
+            <a href="{% url 'survey:survey_list' %}" class="hover:text-foreground">{% trans "Surveys" %}</a>
+            <span>/</span>
+            <a href="{% url 'survey:survey_detail' survey.pk %}" class="hover:text-foreground">{{ survey.title }}</a>
+            <span>/</span>
+            <span class="text-foreground">{% trans "Import/Export" %}</span>
+        </nav>
+    </div>
+
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-card-foreground">{% trans "Import/Export Submissions" %}</h1>
+        <p class="text-muted-foreground mt-2">{% trans "Manage survey submissions by importing from files or exporting existing data" %}</p>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <!-- Export Section -->
+        <div class="bg-card rounded-lg border p-6">
+            <div class="flex items-center mb-4">
+                <svg class="w-6 h-6 text-primary mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+                <h2 class="text-xl font-semibold text-card-foreground">{% trans "Export Submissions" %}</h2>
+            </div>
+            
+            <p class="text-muted-foreground mb-6">
+                {% trans "Download existing survey submissions in CSV or Excel format." %}
+            </p>
+            
+            <div class="space-y-4">
+                <div class="bg-muted/50 rounded-lg p-4">
+                    <h3 class="font-medium text-card-foreground mb-2">{% trans "Export Format" %}</h3>
+                    <div class="flex flex-wrap gap-2">
+                        <a href="{% url 'survey:export_survey_submissions' survey.pk %}?format=csv" 
+                           class="inline-flex items-center px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            {% trans "Export as CSV" %}
+                        </a>
+                        <a href="{% url 'survey:export_survey_submissions' survey.pk %}?format=excel" 
+                           class="inline-flex items-center px-4 py-2 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/90 transition-colors">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            {% trans "Export as Excel" %}
+                        </a>
+                    </div>
+                </div>
+                
+                <div class="bg-muted/30 rounded-lg p-3">
+                    <p class="text-sm text-muted-foreground">
+                        <strong>{% trans "Note:" %}</strong> {% trans "The export will include all submissions with question text as column headers and answers as row values." %}
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Import Section -->
+        <div class="bg-card rounded-lg border p-6">
+            <div class="flex items-center mb-4">
+                <svg class="w-6 h-6 text-primary mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                </svg>
+                <h2 class="text-xl font-semibold text-card-foreground">{% trans "Import Submissions" %}</h2>
+            </div>
+            
+            <p class="text-muted-foreground mb-6">
+                {% trans "Upload a CSV or Excel file to import survey submissions." %}
+            </p>
+            
+            <form method="post" enctype="multipart/form-data" class="space-y-4">
+                {% csrf_token %}
+                
+                <div class="bg-muted/50 rounded-lg p-4">
+                    <h3 class="font-medium text-card-foreground mb-2">{% trans "Download Template" %}</h3>
+                    <p class="text-sm text-muted-foreground mb-3">
+                        {% trans "Download a template file to understand the expected format:" %}
+                    </p>
+                    <div class="flex flex-wrap gap-2">
+                        <a href="{% url 'survey:download_survey_template' survey.pk %}?format=csv" 
+                           class="inline-flex items-center px-3 py-2 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/90 transition-colors text-sm">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            {% trans "CSV Template" %}
+                        </a>
+                        <a href="{% url 'survey:download_survey_template' survey.pk %}?format=excel" 
+                           class="inline-flex items-center px-3 py-2 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/90 transition-colors text-sm">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            {% trans "Excel Template" %}
+                        </a>
+                    </div>
+                </div>
+                
+                <div>
+                    <label for="import_file" class="block text-sm font-medium text-card-foreground mb-2">
+                        {% trans "Select File" %}
+                    </label>
+                    <input type="file" 
+                           id="import_file" 
+                           name="import_file" 
+                           accept=".csv,.xlsx,.xls"
+                           class="form-control"
+                           required>
+                    <p class="text-sm text-muted-foreground mt-1">
+                        {% trans "Supported formats: CSV, Excel (.xlsx, .xls)" %}
+                    </p>
+                </div>
+                
+                <button type="submit" 
+                        class="w-full inline-flex items-center justify-center px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                    </svg>
+                    {% trans "Import Submissions" %}
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Question Reference Section -->
+    <div class="mt-8 bg-card rounded-lg border p-6">
+        <div class="flex items-center mb-4">
+            <svg class="w-6 h-6 text-primary mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+            </svg>
+            <h2 class="text-xl font-semibold text-card-foreground">{% trans "Question Reference" %}</h2>
+            <button id="load-enums" class="ml-auto text-sm text-primary hover:text-primary/80">
+                {% trans "Show Question Details" %}
+            </button>
+        </div>
+        
+        <div id="question-reference" class="hidden">
+            <p class="text-muted-foreground mb-4">
+                {% trans "This table shows all questions in the survey with their IDs, types, and available options." %}
+            </p>
+            <div class="overflow-x-auto">
+                <table class="w-full border-collapse border border-border">
+                    <thead>
+                        <tr class="bg-muted">
+                            <th class="border border-border px-4 py-2 text-left text-sm font-medium text-card-foreground">
+                                {% trans "Question ID" %}
+                            </th>
+                            <th class="border border-border px-4 py-2 text-left text-sm font-medium text-card-foreground">
+                                {% trans "Question Text" %}
+                            </th>
+                            <th class="border border-border px-4 py-2 text-left text-sm font-medium text-card-foreground">
+                                {% trans "Type" %}
+                            </th>
+                            <th class="border border-border px-4 py-2 text-left text-sm font-medium text-card-foreground">
+                                {% trans "Required" %}
+                            </th>
+                            <th class="border border-border px-4 py-2 text-left text-sm font-medium text-card-foreground">
+                                {% trans "Options / Validation" %}
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody id="questions-table-body">
+                        <!-- Questions will be loaded via AJAX -->
+                        <tr>
+                            <td colspan="5" class="border border-border px-4 py-8 text-center text-muted-foreground">
+                                {% trans "Click 'Show Question Details' to load the question reference" %}
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Format Explanation Section -->
+    <div class="mt-8 bg-muted/30 rounded-lg p-6">
+        <h3 class="font-semibold text-card-foreground mb-3">{% trans "File Format Explanation" %}</h3>
+        <div class="space-y-4 text-sm text-muted-foreground">
+            <div>
+                <h4 class="font-medium text-card-foreground mb-2">{% trans "Export Format Structure:" %}</h4>
+                <div class="bg-background rounded-lg p-4 border font-mono text-xs">
+                    <div class="grid grid-cols-4 gap-2 mb-2">
+                        <div class="font-bold">Q1</div>
+                        <div class="font-bold">Q2</div>
+                        <div class="font-bold">Q3</div>
+                        <div class="font-bold">Q4</div>
+                    </div>
+                    <div class="grid grid-cols-4 gap-2 mb-2">
+                        <div class="italic">Question 1 Text</div>
+                        <div class="italic">Question 2 Text</div>
+                        <div class="italic">Question 3 Text</div>
+                        <div class="italic">Question 4 Text</div>
+                    </div>
+                    <div class="grid grid-cols-4 gap-2">
+                        <div>Answer 1</div>
+                        <div>Answer 2</div>
+                        <div>Answer 3</div>
+                        <div>Answer 4</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div>
+                <h4 class="font-medium text-card-foreground mb-2">{% trans "Import Instructions:" %}</h4>
+                <ol class="space-y-2 list-decimal list-inside">
+                    <li>{% trans "Download a template file to understand the expected format" %}</li>
+                    <li><strong>{% trans "Row 1:" %}</strong> {% trans "Contains Question IDs (e.g., Q1, Q2, Q3)" %}</li>
+                    <li><strong>{% trans "Row 2:" %}</strong> {% trans "Contains the actual question text" %}</li>
+                    <li><strong>{% trans "Row 3 onwards:" %}</strong> {% trans "Your submission data" %}</li>
+                    <li>{% trans "For multiple choice questions, use exact option text" %}</li>
+                    <li>{% trans "For checkbox questions, separate multiple options with commas" %}</li>
+                    <li>{% trans "Excel files include dropdown validation for easier data entry" %}</li>
+                    <li>{% trans "Save your file as CSV or Excel format and upload" %}</li>
+                </ol>
+            </div>
+            
+            <div class="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
+                <h4 class="font-medium text-yellow-800 mb-2">{% trans "Important Notes:" %}</h4>
+                <ul class="space-y-1 list-disc list-inside text-yellow-700">
+                    <li>{% trans "Question IDs in Row 1 must match existing survey questions" %}</li>
+                    <li>{% trans "Option text must exactly match the options in the survey" %}</li>
+                    <li>{% trans "Empty rows will be automatically skipped" %}</li>
+                    <li>{% trans "Required questions should have values for complete submissions" %}</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const loadEnumsBtn = document.getElementById('load-enums');
+    const questionReference = document.getElementById('question-reference');
+    const questionsTableBody = document.getElementById('questions-table-body');
+    
+    loadEnumsBtn.addEventListener('click', function() {
+        if (questionReference.classList.contains('hidden')) {
+            // Load question data
+            fetch(`{% url 'survey:get_survey_question_enums' survey.pk %}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        questionsTableBody.innerHTML = '';
+                        
+                        // We need to get question IDs from somewhere - let's modify the API to include them
+                        Object.entries(data.questions).forEach(([questionKey, questionData]) => {
+                            const row = document.createElement('tr');
+                            row.className = 'hover:bg-muted/50';
+                            
+                            // Extract question ID from the key or from questionData if available
+                            const questionId = questionData.id || questionKey;
+                            const questionText = questionData.text || questionKey;
+                            
+                            const optionsText = questionData.options.length > 0 
+                                ? questionData.options.map(opt => `${opt.text} (${opt.value})`).join(', ')
+                                : `${questionData.type}${questionData.min_value !== undefined ? ` (Min: ${questionData.min_value})` : ''}${questionData.max_value !== undefined ? ` (Max: ${questionData.max_value})` : ''}`;
+                            
+                            row.innerHTML = `
+                                <td class="border border-border px-4 py-2 text-sm font-mono">Q${questionId}</td>
+                                <td class="border border-border px-4 py-2 text-sm">${questionText}</td>
+                                <td class="border border-border px-4 py-2 text-sm">${data.question_types[questionData.type]}</td>
+                                <td class="border border-border px-4 py-2 text-sm">${questionData.required ? 'Yes' : 'No'}</td>
+                                <td class="border border-border px-4 py-2 text-sm">${optionsText}</td>
+                            `;
+                            
+                            questionsTableBody.appendChild(row);
+                        });
+                        
+                        questionReference.classList.remove('hidden');
+                        loadEnumsBtn.textContent = '{% trans "Hide Question Details" %}';
+                    } else {
+                        alert('Error loading question data: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error loading question data');
+                });
+        } else {
+            questionReference.classList.add('hidden');
+            loadEnumsBtn.textContent = '{% trans "Show Question Details" %}';
+        }
+    });
+});
+</script>
+{% endblock %}
