@@ -36,4 +36,4 @@ Digital Personal Data Protection Act 2023; Information Technology Act 2000; the 
 
 ## Contact
 
-For questions about this project, write to dpg@intellecap.net. For your own data, contact the organisation that collected it.
+For questions about this project, write to dpg@invarya.com. For your own data, contact the organisation that collected it.
